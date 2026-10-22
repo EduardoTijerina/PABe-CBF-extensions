@@ -1,0 +1,25 @@
+# Entornos y cachés
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Resultados generados (regenerables con scripts/); la instantánea publicada vive en docs/ y media/
+results/
+
+# Dependencias de terceros descargadas (no se redistribuyen) y binarios generados
+third_party/
+*.mjb
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# Sistema
+.DS_Store

@@ -1,0 +1,258 @@
+% ============================================================================
+% Sección de evaluación en simulación para el manuscrito PABe-CBF.
+% Generada a partir de results/paper/exp.pkl (pabe_cbf.paper_exp / paper_figs).
+% Requiere: graphicx, booktabs, amsmath. Figuras en figures/, tablas en tables/.
+% ============================================================================
+\section{Evaluación en simulación}
+\label{sec:sim}
+
+\subsection{Banco de pruebas}
+\label{sec:sim:setup}
+Para someter la propuesta a una primera prueba falsable se implementó un banco de
+pruebas abierto y reproducible (paquete \texttt{pabe\_cbf}). Por razones de alcance es
+una \emph{abstracción planar} del apretón de manos y \emph{no} un gemelo digital del
+Unitree~G1. El brazo del robot es una cadena de 3~GDL con longitudes de 0{,}30/0{,}28/0{,}10\,m y control
+de velocidad articular ($|u_i|\le 2{,}5$\,rad/s), que representa la salida del
+controlador de cuerpo completo. La perturbación articular está acotada:
+$|w_i|\le 0{,}03$\,rad/s, con $0{,}10$\,rad/s en la familia de perturbación, por encima de la cota de
+diseño $0{,}05$\,rad/s. El brazo humano sigue un guion de lazo abierto
+con perfiles de mínimo \emph{jerk}, idéntico para todos los métodos por semilla. El
+contacto se modela como un resorte de agarre ($K=300$\,N/m). Los puntos controlados son
+el codo, el antebrazo, la muñeca y la palma, con barreras de distancia por eslabón frente a la
+mano, la muñeca, el codo y el torso humanos ($d^{\rm phys}=6$\,cm). Se usa $F_{\rm phys}=20$\,N y
+$F_{\rm soc}=12$\,N. Las estimaciones tienen cotas de error demostrables:
+$\epsilon_d=1{,}5$\,cm, $\epsilon_v=0{,}10$\,m/s y $\epsilon_F=0{,}6$\,N. Durante una oclusión,
+la cota crece como el conjunto alcanzable con velocidad inicial conocida y
+aceleración acotada (1{,}5\,m/s$^2$). El lazo CBF corre a 100\,Hz y el HMM a
+33\,Hz. El QP~\eqref{eq:qp} se resuelve con \texttt{quadprog} (Goldfarb--Idnani).
+
+Las observaciones son sintéticas: velocidad radial visual, una señal proxémica de
+disposición y una señal táctil de agarre, esta última solo en contacto. Incluyen un transitorio
+ambiguo al establecer el contacto. El HMM~\eqref{eq:hmm} se ajusta por máxima
+verosimilitud supervisada, con matrices $A^{(m)}$ por grupo de modo y emisiones $t$ de
+Student ($\nu=4$, posición mediana, escala MAD). $H_{\rm ref}(m,\tau)$ es el
+cuantil~0{,}8 de la entropía en trazas nominales. La cota $p_W^+$ se obtiene por
+regresión isotónica de $b_W$ con una cota superior de Clopper--Pearson por bloque. El
+tamaño efectivo de cada bloque se cuenta como el número de \emph{episodios} distintos y no de
+ticks, porque los ticks de un episodio están autocorrelacionados.
+
+\subttl{Particiones y protocolo} Todos los conjuntos son disjuntos por participante
+simulado:
+\begin{itemize}
+\item entrenamiento del HMM y de $H_{\rm ref}$: 12 participantes;
+\item calibración de $p_W^+$, del cuantil conforme de B5 y del umbral de B8: 10 participantes;
+\item validación, usada solo para elegir umbrales: 10 participantes;
+\item test: 20 participantes $\times$ 6 familias $\times$ 5 semillas, es decir, 600 episodios por método.
+\end{itemize}
+El 25\,\% de los participantes de validación y de test presenta cambio de dominio, con señales
+de disposición atenuadas y más ruidosas. B3, B5 y B9 se comparan \emph{a igual sensibilidad}. En validación se
+barrió el umbral de liberación y se eligió, para cada método, el de menor cancelación falsa
+que detecta al menos $s^\star=80$\,\% de las retiradas en $\le1$\,s. Las
+variantes que comparten la regla de B9 (B6, A1--A7) usan el mismo umbral, y B2, B4, B7 y B8
+conservan su regla nativa. En total se simularon 27\,000 episodios de test.
+
+\subttl{Transparencia sobre el desarrollo} Durante el desarrollo se evaluó una versión
+previa (v1) sobre otra partición de test. En ella se observaron dos defectos de
+especificación que afectaban a todos los métodos con HMM:
+(i) con emisiones gaussianas, el estado W, que mezcla ``retirándose'' y ``ya
+retirado en reposo'', quedaba mal representado, y la creencia volvía a H con la mano quieta;
+(ii) la cota $p_W^+$ por bins aplanaba el orden de las probabilidades.
+Ambos se corrigieron antes de los resultados aquí reportados, que se obtuvieron sobre una partición de
+test \emph{nueva} (participantes 4000+) que no intervino en ninguna decisión. La
+variante v1 de la calibración se conserva como ablación A8.
+
+\subttl{Análisis estadístico} Las tasas por episodio llevan IC~95\,\% de
+Clopper--Pearson. Cuando no hay eventos se informa además la cota unilateral
+de la Ec.~\eqref{eq:zeroevents}. Los contrastes pre-registrados (Tabla~\ref{tab:contrasts})
+usan bootstrap pareado por episodio, remuestreando \emph{participantes} (4000 réplicas), y la
+familia completa de nueve contrastes se corrige con Holm.
+
+\subsection{Resultados globales}
+\label{sec:sim:main}
+La Tabla~\ref{tab:main} y la Fig.~\ref{fig:methods} resumen los diez comparadores.
+\begin{itemize}
+\item \textbf{Violaciones.} Sin filtro (B0), el 54{,}8\,\% de los episodios presenta al menos una violación
+física, sobre todo contacto no autorizado de la palma (47{,}3\,\%). Con el CBF de umbrales
+fijos (B1) la tasa baja al 4{,}3\,\%, toda por exceso de fuerza en retiradas
+durante el contacto y bajo perturbaciones que exceden la cota de diseño (18\,\% en la
+familia~vi; Tabla~\ref{tab:families}). B9 no registró violaciones en 600 episodios. Esto acota la tasa por
+debajo de 0{,}5\,\% (unilateral 95\,\%) bajo el supuesto i.i.d., lo que \emph{no} equivale a riesgo nulo.
+\item \textbf{Retirada.} Los métodos sin regla semántica de retirada (B1 y B7) fallan la
+liberación en el 15{,}7\,\% y el 19{,}3\,\% de las retiradas con contacto. B9 no falla ninguna (IC
+[0, 2{,}3]\,\%). Con todo, B2--B6 obtienen el mismo resultado.
+\item \textbf{Tarea.} B9 completa el 93{,}7\,\% de los apretones autorizados, con un 6{,}3\,\% de cancelaciones
+falsas [3{,}9, 9{,}7]. Las cancelaciones falsas se concentran en las familias de duda inocua y de
+oclusión. En oclusión la causa es la expansión del conjunto alcanzable, común a todos
+los métodos filtrados.
+\end{itemize}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_scene.pdf}
+\caption{Episodio representativo de retirada durante el contacto (test, participante
+4019, elegido automáticamente como el de mayor diferencia de fuerza pico B1$-$B9). Gris oscuro:
+brazo del robot, con la palma en azul. Gris claro: brazo humano. Círculo discontinuo: margen
+total $d^{\rm sep}+\epsilon_d+\theta_d$ fuera del contacto; punteado: $d^{\rm sep}$.
+Flecha naranja: fuerza de interacción. B9 anticipa la retirada y libera antes. B1 sólo
+libera por el tirón táctil explícito y es arrastrado (Fig.~\ref{fig:timeseries}d).}
+\label{fig:scene}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_timeseries.pdf}
+\caption{Señales internas en el episodio de la Fig.~\ref{fig:scene}. Sombreado: modo de
+B9 (blanco: A; beige: C; azul: R). Línea naranja discontinua: inicio real de la retirada.
+(a) Creencia del HMM. (b) $p_W^+$ frente a $b_W$, $H_t$ y $E^{\rm exc}_t$. Las
+oscilaciones de entropía en la fase C no alcanzan el umbral de liberación.
+(c) Margen $\theta_d$: el gobernador lo integra dentro del QP, mientras que en A1 salta
+instantáneamente a $\theta_d^\star$. (d) Fuerza de interacción: B1 supera $F_{\rm phys}$.
+(e) Corrección $\|u-u_{\rm nom}\|$: los saltos de $\theta$ en A1 y B3 producen
+correcciones abruptas que B9 evita.}
+\label{fig:timeseries}
+\end{figure*}
+
+\input{tables/tab_main.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_methods.pdf}
+\caption{Resultados primarios por método en test (punto: tasa por episodio; barra:
+IC~95\,\% Clopper--Pearson; $n=600$ episodios por método).}
+\label{fig:methods}
+\end{figure*}
+
+\subsection{H1: gobernador de viabilidad}
+\label{sec:sim:h1}
+El contraste preregistrado para H1 enfrenta a B9 con B6, que usa las mismas señales y márgenes
+variables, pero con una ley de evolución exógena. Frente a B6, B9 reduce los episodios con algún
+ciclo QP infactible en 1{,}0~pp [$-$1{,}8, $-$0{,}3] ($p_{\rm Holm}=0{,}030$). También reduce el
+jerk p95 de la palma en 8{,}9\,m/s$^3$ ($p_{\rm Holm}=0{,}002$) y la energía de intervención
+($p_{\rm Holm}=0{,}002$), sin aumentar las violaciones físicas: ninguno de los dos registró violaciones (Tabla~\ref{tab:contrasts}).
+La ablación A1, que asigna $\theta\leftarrow\theta^\star$ de forma instantánea, aísla el mismo mecanismo con
+mayor contraste (Tabla~\ref{tab:ablation}, Fig.~\ref{fig:ablation}): eleva los episodios infactibles
+en 19{,}3~pp y el jerk p95 en 33\,m/s$^3$. La Fig.~\ref{fig:timeseries}c,e muestra el
+mecanismo: con margen instantáneo, cada pico de $\theta^\star$ se traduce en una
+corrección abrupta, mientras que B9 desacelera el crecimiento de $\theta$. \textbf{H1 se apoya en
+este banco de pruebas}, aunque frente a B6 el efecto es pequeño en magnitud.
+
+\input{tables/tab_contrasts.tex}
+
+\subsection{H2: riesgo separado de la entropía}
+\label{sec:sim:h2}
+La Fig.~\ref{fig:frontier} muestra las fronteras riesgo--utilidad. En test, las curvas de B3,
+B9 y A8 se superponen dentro de la incertidumbre. B5 alcanza mayor sensibilidad en la zona de baja cancelación,
+pero a costa de un 73\,\% de episodios con QP infactible: su margen conforme contextual
+salta al cambiar de modo. En los puntos elegidos en validación (Tabla~\ref{tab:h2}), B9 cancela
+1{,}3~pp menos que B3, con IC [$-$2{,}7, $-$0{,}3], $p=0{,}025$ y $p_{\rm Holm}=0{,}10$. Ese punto, sin embargo, también
+tiene 3{,}3~pp \emph{menos} sensibilidad ($p_{\rm Holm}=0{,}002$), por lo que la ventaja
+desaparece al leerla sobre la frontera. Frente a B5 la diferencia no es significativa
+(+1{,}0~pp; $p_{\rm Holm}=0{,}75$). La ablación A2, que sustituye $E^{\rm exc}$ por $H(b)$, tampoco
+cambia las cancelaciones. \textbf{H2 no se apoya}. En este banco, una vez que la
+creencia está bien especificada, ni la separación $p_W^+$/$E^{\rm exc}$ ni la entropía
+excedente reducen las liberaciones falsas frente a una regla combinada $b_W+\lambda H$ con
+umbral ajustado. Las versiones previas con un HMM mal especificado mostraron
+diferencias mayores en ambos sentidos. Esto indica que la calidad del
+modelo de creencia pesa más que la forma de la regla.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_frontier.pdf}
+\caption{Fronteras riesgo--utilidad al barrer el umbral de liberación $\tau$.
+Sensibilidad: retiradas detectadas por la regla semántica en $\le1$\,s. Círculos:
+puntos de operación elegidos en validación, con IC~95\,\%. Línea vertical: $s^\star=80$\,\%.}
+\label{fig:frontier}
+\end{figure*}
+
+\input{tables/tab_h2.tex}
+
+\subsection{H3: barreras por eslabón y modo}
+\label{sec:sim:h3}
+Ningún método con barreras por eslabón (B1--B9) violó la separación de antebrazo,
+muñeca o codo, ni produjo contacto no autorizado. Al sustituirlas por una única barrera
+geométrica (A5), el 14{,}5\,\% de los episodios invade la separación de un eslabón no autorizado. A cambio,
+el movimiento es más suave y hay menos infactibilidad, porque se imponen menos restricciones. Frente
+a B1, B9 reduce las violaciones físicas totales en 4{,}3~pp ($p_{\rm Holm}=0{,}002$), gracias a
+la liberación anticipada. \textbf{H3 se apoya}.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_ablation.pdf}
+\caption{Ablaciones: efecto de cada modificación respecto de B9 (X$-$B9) con IC~95\,\% por
+bootstrap de participantes. Relleno: el IC excluye cero.}
+\label{fig:ablation}
+\end{figure*}
+
+\input{tables/tab_ablation.tex}
+
+\subsection{Calibración de la señal de retirada}
+\label{sec:sim:calib}
+La cota isotónica v2 mejora la calidad probabilística frente a la versión por bins
+(Tabla~\ref{tab:calibration}): ECE de 0{,}039 a 0{,}019, log-loss de 0{,}237 a 0{,}191 y AUROC de
+0{,}874 a 0{,}956, es decir, recupera la capacidad de ordenamiento de $b_W$. Sin embargo, la
+Fig.~\ref{fig:reliability} revela un resultado negativo importante. En test, con participantes nuevos y
+un 25\,\% con cambio de dominio, $p_W^+$ \emph{no} es una cota superior uniforme. En los bins
+0{,}1--0{,}4 la frecuencia observada de W supera la probabilidad predicha, aunque estos
+bins reúnen sólo el 5\,\% de los ticks. La garantía marginal de calibración no se
+transfiere bajo desplazamiento de dominio, como advertía la Sec.~3.2, y no debe
+presentarse como cota condicional. En lazo cerrado, A8 y B9 no difieren en ninguna métrica
+primaria al umbral elegido.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_reliability.pdf}
+\caption{Diagrama de fiabilidad de la señal de retirada en test (10 bins, $\ge$20 ticks por bin).
+Los puntos por encima de la diagonal indican subestimación del riesgo.}
+\label{fig:reliability}
+\end{figure}
+
+\input{tables/tab_calibration.tex}
+
+\subsection{H4: coste computacional}
+\label{sec:sim:h4}
+La capa de seguridad completa de B9 (HMM, señales, autómata y QP conjunto) requiere
+0{,}94/1{,}30/1{,}55\,ms en p50/p95/p99 por ciclo, con un máximo de 12{,}3\,ms. El QP conjunto
+de 5 variables tarda 0{,}21\,ms en la mediana, frente a 0{,}17\,ms del QP de B1 con 3 variables
+(Tabla~\ref{tab:latency}, Fig.~\ref{fig:latency}). Ningún ciclo de ningún método superó el
+presupuesto de 150\,ms. Las cifras se midieron en Python con 14 procesos concurrentes y
+\emph{no} incluyen adquisición, inferencia visual, transporte ni actuación, que en el sistema real
+dominarán la latencia sensor$\to$actuador. \textbf{H4 se apoya sólo para el componente de
+cómputo del filtro}.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_latency.pdf}
+\caption{Distribución acumulada del tiempo de cómputo por ciclo de la capa de seguridad.}
+\label{fig:latency}
+\end{figure}
+
+\input{tables/tab_latency.tex}
+\input{tables/tab_families.tex}
+
+\subsection{Amenazas a la validez de la evaluación}
+\label{sec:sim:threats}
+\begin{enumerate}[label=(\roman*)]
+\item La simulación es planar y cinemática, sin dinámica de cuerpo completo ni contacto
+deformable. Los resultados no implican transferencia al G1.
+\item El humano sigue un guion de lazo abierto y no reacciona al robot, salvo en el cierre.
+\item El modelo de observación es sintético y lo diseñaron los mismos autores que el HMM, lo que
+favorece a todos los métodos basados en creencia frente a B1 y B7.
+\item B4, B5, B7 y B8 son adaptaciones mínimas de los trabajos citados y no
+reproducciones. Además, B2, B4 y B8 no se barrieron en umbral.
+\item El conjunto de validación se reutilizó entre la v1 y la v2, de modo que sólo la partición
+de test es completamente nueva.
+\item Las métricas de predicción se calculan por tick y están autocorrelacionadas.
+\item La latencia medida excluye la percepción.
+\end{enumerate}
+
+\subsection{Síntesis}
+\label{sec:sim:summary}
+En este banco de pruebas, la contribución defendible de PABe-CBF es el
+\emph{gobernador de viabilidad}: optimizar $\dot\theta$ conjuntamente con $u$ reduce la
+infactibilidad y la brusquedad sin coste de seguridad y con un sobrecoste de cómputo de
+$\approx$0{,}04\,ms por ciclo. También queda apoyada la \emph{separación por eslabón y modo} (H3), así como la utilidad de una
+señal explícita de riesgo de retirada para evitar liberaciones fallidas (A3: +16{,}9~pp). No se
+encontró evidencia de que separar $p_W^+$ de la entropía excedente reduzca las cancelaciones falsas frente a
+una regla basada en entropía con umbral ajustado (H2). La cota calibrada $p_W^+$ tampoco se mantuvo como cota superior uniforme bajo
+cambio de dominio. Estos dos puntos deben reformularse o someterse a nuevas pruebas antes de presentarse como
+aportaciones.

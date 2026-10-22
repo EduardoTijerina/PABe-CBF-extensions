@@ -1,0 +1,26 @@
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Coste por ciclo de la capa de seguridad en el G1 (ms; Python, 11 procesos concurrentes). La latencia sensor$\to$actuador modelada añade 33\,ms de percepción visual y la dinámica del lazo de par. En total, 3 de 4{,}4 millones de ciclos superaron 150\,ms (todos de A9; picos aislados en una máquina compartida).}
+\label{tab:g1lat}
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrr}
+\toprule
+Método & p50 & p95 & p99 & máx & QP p50 & QP p99 & \% $>$150 ms \\
+\midrule
+B0 nominal & 0{,}361 & 0{,}656 & 0{,}736 & 12{,}8 & 0{,}000 & 0{,}000 & 0{,}00 \\
+B1 CBF fijo & 1{,}421 & 2{,}391 & 3{,}267 & 25{,}4 & 0{,}279 & 0{,}551 & 0{,}00 \\
+B2 HMM-MAP & 1{,}314 & 2{,}189 & 2{,}474 & 12{,}6 & 0{,}261 & 0{,}462 & 0{,}00 \\
+B3 HMM-$H(b)$ & 1{,}252 & 2{,}081 & 2{,}197 & 9{,}9 & 0{,}243 & 0{,}412 & 0{,}00 \\
+B4 BCBF & 1{,}577 & 2{,}578 & 2{,}717 & 45{,}2 & 0{,}244 & 0{,}409 & 0{,}00 \\
+B5 CRC-CBF & 1{,}296 & 2{,}130 & 2{,}261 & 8{,}9 & 0{,}248 & 0{,}419 & 0{,}00 \\
+B6 TV-CBF & 1{,}298 & 2{,}142 & 2{,}290 & 12{,}8 & 0{,}245 & 0{,}421 & 0{,}00 \\
+B7 SHIELD & 1{,}438 & 2{,}368 & 2{,}542 & 12{,}2 & 0{,}248 & 0{,}431 & 0{,}00 \\
+B8 RCIP & 1{,}712 & 2{,}781 & 2{,}984 & 7{,}7 & 0{,}252 & 0{,}433 & 0{,}00 \\
+B9 PABe-CBF & 1{,}267 & 2{,}097 & 2{,}218 & 6{,}0 & 0{,}212 & 0{,}368 & 0{,}00 \\
+A6 HSMM & 1{,}287 & 2{,}121 & 2{,}269 & 5{,}8 & 0{,}211 & 0{,}366 & 0{,}00 \\
+A9 $\rho\to\infty$ & 1{,}259 & 2{,}076 & 2{,}230 & 1011{,}9 & 0{,}210 & 0{,}364 & 0{,}00 \\
+A10 secuencial & 1{,}492 & 2{,}456 & 2{,}612 & 13{,}7 & 0{,}433 & 0{,}741 & 0{,}00 \\
+\bottomrule
+\end{tabular}}
+\end{table*}

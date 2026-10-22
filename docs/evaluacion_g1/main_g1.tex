@@ -1,0 +1,57 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noquoting]{babel}
+\usepackage{lmodern,microtype}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{graphicx,booktabs,tabularx,array,longtable,multicol}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,calc}
+\usepackage{enumitem}
+\usepackage[breaklinks=true,colorlinks=true,urlcolor=NavyBlue,citecolor=NavyBlue,linkcolor=NavyBlue]{hyperref}
+\usepackage[margin=18mm,top=20mm,bottom=20mm,columnsep=7mm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{float}
+\usepackage{balance}
+\definecolor{ink}{HTML}{19304B}
+\definecolor{accent}{HTML}{137D91}
+\definecolor{papergray}{HTML}{EFF4F7}
+\definecolor{orange}{HTML}{B55B25}
+\renewcommand{\baselinestretch}{1.0}
+\setlength{\parindent}{0.85em}
+\setlength{\parskip}{0pt}
+\setlist[itemize]{leftmargin=*,itemsep=1pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=*,itemsep=2pt,topsep=2pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\color{ink}PABe-CBF --- Evaluación en simulación}
+\fancyhead[R]{\footnotesize\color{ink}Octubre de 2026}
+\fancyfoot[C]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\newtheorem{theorem}{Teorema}
+\newtheorem{proposition}{Proposición}
+\newtheorem{remark}{Observación}
+\newcommand{\bvec}{\mathbf{b}}
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\calC}{\mathcal{C}}
+\newcommand{\calU}{\mathcal{U}}
+\newcommand{\calW}{\mathcal{W}}
+\newcommand{\calV}{\mathcal{V}}
+\newcommand{\subttl}[1]{\vspace{3pt}\noindent\textbf{\color{ink}#1.}~}
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\newcommand{\doi}[1]{\href{https://doi.org/#1}{DOI \textsf{[enlace]}}}
+\newcommand{\notehead}[1]{\vspace{2pt}\noindent\textbf{\color{ink}#1}\enspace}
+\title{\bfseries\color{ink}PABe-CBF en el Unitree G1 simulado (MuJoCo)\\[-2pt]
+\large\normalfont\color{accent}Atribución, sensibilidad, factibilidad y experimento controlado de entropía}
+\author{\small Generado con \texttt{pabe\_cbf.g1}}
+\date{\small Octubre de 2026}
+\makeatletter
+\newcommand{\fakelabel}[2]{\protected@write\@auxout{}{\string\newlabel{#1}{{#2}{}{}{}{}}}}
+\makeatother
+\begin{document}
+\fakelabel{eq:dyn}{1}\fakelabel{sec:benchmark}{7}
+\maketitle
+\input{seccion_g1.tex}
+\end{document}

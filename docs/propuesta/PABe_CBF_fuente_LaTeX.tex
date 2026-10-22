@@ -1,0 +1,483 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noquoting]{babel}
+\usepackage{lmodern,microtype}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{graphicx,booktabs,tabularx,array,longtable,multicol}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,calc}
+\usepackage{enumitem}
+\usepackage[breaklinks=true,colorlinks=true,urlcolor=NavyBlue,citecolor=NavyBlue,linkcolor=NavyBlue]{hyperref}
+\usepackage[margin=18mm,top=20mm,bottom=20mm,columnsep=7mm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{float}
+\usepackage{balance}
+\definecolor{ink}{HTML}{19304B}
+\definecolor{accent}{HTML}{137D91}
+\definecolor{papergray}{HTML}{EFF4F7}
+\definecolor{orange}{HTML}{B55B25}
+\renewcommand{\baselinestretch}{1.0}
+\setlength{\parindent}{0.85em}
+\setlength{\parskip}{0pt}
+\setlist[itemize]{leftmargin=*,itemsep=1pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=*,itemsep=2pt,topsep=2pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\color{ink}PABe-CBF · Propuesta teórica de investigación}
+\fancyhead[R]{\footnotesize\color{ink}Octubre de 2026}
+\fancyfoot[C]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\newtheorem{theorem}{Teorema}
+\newtheorem{proposition}{Proposición}
+\newtheorem{remark}{Observación}
+\newcommand{\bvec}{\mathbf{b}}
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\calC}{\mathcal{C}}
+\newcommand{\calU}{\mathcal{U}}
+\newcommand{\calW}{\mathcal{W}}
+\newcommand{\calV}{\mathcal{V}}
+\newcommand{\subttl}[1]{\vspace{3pt}\noindent\textbf{\color{ink}#1.}~}
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\newcommand{\doi}[1]{\href{https://doi.org/#1}{DOI \textsf{[enlace]}}}
+\newcommand{\notehead}[1]{\vspace{2pt}\noindent\textbf{\color{ink}#1}\enspace}
+\title{\vspace{-1.3cm}\bfseries\color{ink}PABe-CBF: barreras de seguridad gobernadas por viabilidad, fase de interacción y entropía de creencias\\[-2pt]
+\large\normalfont\color{accent}Una propuesta teórica para contacto humano--humanoide bajo observabilidad parcial}
+\author{\small Manuscrito conceptual de investigación · Basado en el proyecto \emph{Safety Behaviour Model} (Unitree G1)}
+\date{\small 16 de octubre de 2026 · Revisión de 30 trabajos (2021--2026) y protocolo competitivo de evaluación}
+\begin{document}
+\maketitle
+\vspace{-0.7cm}
+\begin{abstract}
+\noindent\textbf{Problema.} Durante un apretón de manos entre una persona y un humanoide, la distancia mínima y la fuerza de contacto no pueden imponerse como restricciones invariantes idénticas en todas las fases. La intención humana es latente y su estimación se vuelve ambigua precisamente durante las transiciones naturales. \textbf{Propuesta.} Formulamos \emph{Phase-Aware Belief-entropy CBF with Viability Governor} (PABe-CBF): un modelo oculto de Markov multimodal que separa probabilidad de retirada, entropía esperada por fase y sorpresa predictiva; un autómata híbrido que autoriza o desactiva contactos específicos; y un filtro cuadrático que optimiza \emph{conjuntamente} la orden motora y la velocidad de variación de los márgenes de seguridad. \textbf{Resultado teórico.} Presentamos una condición suficiente de invariancia robusta, supeditada a acotaciones de error, factibilidad continua y conmutaciones admisibles. Se demuestra que la entropía, por sí sola, no ordena el riesgo de retirada. \textbf{Alcance.} Se trata de una contribución hipotética y comprobable: no se afirman resultados experimentales, ausencia absoluta de riesgo ni garantías de seguridad psicológica. Un mapa crítico de 30 trabajos de arXiv e IEEE fundamenta la propuesta.
+\end{abstract}
+\vspace{4pt}
+\noindent\textbf{Palabras clave:} funciones barrera de control; HMM; belief entropy; control híbrido; interacción física humano--robot; seguridad bajo incertidumbre; Unitree G1.
+
+\section{Motivación y pregunta de investigación}
+El material de partida describe un humanoide Unitree G1, una tarea de apretón de manos, sensores visuales y táctiles, un controlador nominal que puede proceder de GR00T y una capa local CBF que preserva restricciones de distancia y fuerza. La presentación fija las fases \emph{mutual approach, contact establishment, engagement, task execution} y \emph{closure}; plantea estados humanos \emph{engaged, hesitant, withdrawing} y propone adaptar los umbrales por creencia y entropía. También advierte que los saltos de umbral pueden volver inviable el programa cuadrático (QP) y que la entropía crece en transiciones normales (págs. 11--14 y 18 de la presentación).
+
+Existe una tensión fundamental: la mano debe acercarse para tocar, pero el torso, antebrazo y restantes eslabones nunca deben invadir zonas prohibidas. En contacto intencional, la restricción activa cambia de separación de palma a límites de fuerza y deslizamiento. A la vez, el modelo humano puede confundir incertidumbre normal con señales de retirada. La pregunta abordada es:
+\begin{tcolorbox}[colback=papergray,colframe=accent,boxrule=.7pt,left=5pt,right=5pt,top=5pt,bottom=5pt]
+\emph{¿Cómo actualizar restricciones físicas condicionadas por la fase y por una creencia incierta, sin que una variación repentina de esa creencia invalide el certificado de seguridad ni genere movimientos bruscos?}
+\end{tcolorbox}
+
+\section{Estado del arte y brecha concreta}
+\subttl{Filtros certificados sobre políticas aprendidas} BarrierNet \cite{r7}, los filtros state--action \cite{r8} y SHIELD \cite{r1} confirman que una capa de seguridad puede corregir políticas de aprendizaje sin cambiar su arquitectura; SHIELD incluye experimentos con Unitree G1. Los trabajos de respaldo y de incertidumbre dinámica \cite{r9,r11,r12} insisten en la factibilidad y la robustez. Esto descarta presentar \emph{CBF encima de GR00T} como principal novedad.
+
+\subttl{Belief, riesgo y observabilidad parcial} Los BCBF de Han \emph{et al.} \cite{r2}, los certificados bajo observabilidad parcial de Jahanshahi y Chen \cite{r3}, y la arquitectura reach--avoid en espacio de creencias \cite{r4} ocupan directamente el territorio de los CBF probabilísticos. En HRI, el planeamiento con control conforme del riesgo \cite{r5} y la predicción de intención mediante conjuntos \cite{r18} muestran la necesidad de calibrar la incertidumbre en vez de equipararla con seguridad.
+
+\subttl{Intención, fases y entropía} Los HMM han sido utilizados para reconocer fases de saludo \cite{r14}, estrategias de equipo \cite{r15} y decisiones humanas \cite{r16}; los modelos bayesianos de intención aportan inferencia multimodal \cite{r17,r19}. La entropía conductual \cite{r20} advierte que elegir una medida de incertidumbre no es equivalente a modelar cómo perciben las personas esa incertidumbre. La arquitectura emocional basada en HMM \cite{r30} constituye antecedente social, no una garantía de comodidad.
+
+\subttl{Manipulación y humanoides} ReKep \cite{r25} optimiza restricciones relacionales para tareas, pero no sustituye un certificado de invariancia; SafeVLA, LIBERO-Safety y SafeVLA-Bench \cite{r21,r22,r23} separan éxito de tarea y seguridad. ThorArena \cite{r24} aporta métricas de fuerza sobre movimientos de humanoides. La revisión reciente de contacto seguro \cite{r26} contextualiza las limitaciones de los modelos fundacionales.
+
+\subttl{Brecha susceptible de contribución} La aportación \emph{propuesta} es la integración en contacto físico humano--humanoide de: (i) riesgo de retirada \emph{separado} de entropía de fase; (ii) márgenes CBF regulados como estados dinámicos para evitar saltos; (iii) barreras híbridas por superficie de contacto autorizada; y (iv) condiciones verificables de invariancia para el sistema extendido. No se afirma que cada componente sea nuevo aisladamente. La prioridad científica es demostrar una mejora frente a los antecedentes \cite{r1,r2,r3,r4,r5,r6} y no atribuirse una primacía universal.
+
+\section{Modelo matemático}
+\subsection{Dinámica y estructura de percepción}
+Sea $x\in\RR^n$ el estado físico del robot y $u\in\calU$ el mando ejecutable de un controlador de cuerpo completo. En cada modo $m$:
+\begin{equation}
+ \dot x=f_m(x)+g_m(x)u+w,\quad w\in\calW,
+ \label{eq:dyn}
+\end{equation}
+con $\calW$ compacto y perturbaciones acotadas. Sea $y_t=(y_t^v,y_t^p,y_t^{\tau})$ el vector de observaciones de visión geométrica, proxémica y sensores táctiles; pueden existir observaciones ausentes, retrasos o canales inactivos según el modo.
+
+Separaremos dos nociones diferentes: $z_t\in\{E,H,W\}$ es un estado latente de \emph{disposición observable aproximada} (interesado, dubitativo, retirándose); $m_t\in\{A,C,R\}$ es el modo operativo explícito (aproximación, contacto y retirada/liberación). Ni $z_t$ ni $m_t$ deben interpretarse como una medida clínica o como prueba de consentimiento.
+
+El filtro HMM dependiente del contexto calcula
+\begin{equation}
+ b_t(i)=\frac{\ell_i(y_t\mid m_t)\sum_j A^{(m_t)}_{ji}b_{t-1}(j)}{\sum_k\ell_k(y_t\mid m_t)\sum_j A^{(m_t)}_{jk}b_{t-1}(j)},
+ \label{eq:hmm}
+\end{equation}
+donde $b_t(i)=\Pr(z_t=i\mid y_{1:t})$. En aproximación dominan los rasgos visuales; en contacto, los táctiles, sin descartar la detección inmediata de retirada.
+
+\subsection{Entropía, sorpresa y probabilidad de retirada}
+La entropía normalizada es
+\begin{equation}
+ H_t=-\frac{\sum_{i=1}^{3}b_t(i)\log b_t(i)}{\log 3},\qquad 0\le H_t\le1.
+ \label{eq:entropy}
+\end{equation}
+Adoptamos $0\log0=0$. Definimos $\bar b_t=(A^{(m_t)})^\top b_{t-1}$ y la \emph{sorpresa predictiva} $S_t=D_{\mathrm{KL}}(b_t\Vert\bar b_t)$, con regularización numérica de probabilidades. A partir de trazas nominales se estima la entropía de transición esperada $H_{\mathrm{ref}}(m,\tau)$, donde $\tau$ es el tiempo transcurrido dentro del modo. Definimos
+\begin{equation}
+ E_t^{\mathrm{exc}}=\left[H_t-H_{\mathrm{ref}}(m_t,\tau_t)\right]_+.
+ \label{eq:excess}
+\end{equation}
+La probabilidad de retirada $b_t(W)$ se transforma en un valor superior calibrado $p^+_{W,t}\in[b_t(W),1]$ \emph{solo si la calibración empírica lo justifica}. Si no existe calibración válida, se usa una cota conservadora de riesgo o se impide el inicio de contacto. Un valor conformal marginal no debe presentarse falsamente como garantía condicional en cada estado.
+
+\begin{proposition}[La entropía no ordena el riesgo de retirada]
+Existen creencias de tres estados con la misma entropía de Shannon y distinta probabilidad de retirada; por tanto, una regla de seguridad basada exclusivamente en $H_t$ no puede distinguir todos los casos de riesgo.
+\end{proposition}
+\begin{proof}
+Tómense $b^a=(1/2,1/2,0)$ y $b^b=(1/2,0,1/2)$ para los estados $(E,H,W)$. Las dos creencias tienen $H=\log2/\log3$, pero $b^a(W)=0$ y $b^b(W)=1/2$. Esto prueba la afirmación.
+\end{proof}
+El resultado motiva dos entradas distintas: \emph{riesgo semántico} $p_W^+$ y \emph{incertidumbre excedente} $E^{\mathrm{exc}}$. La segunda afecta a la prudencia o suavidad del movimiento; nunca puede relajar una restricción física básica.
+
+\section{Propuesta: barrera híbrida con regulador de viabilidad}
+\subsection{Barreras físicas y sociales separadas}
+Sean $d_j(x,h)$ las distancias humano--robot para eslabones no autorizados a contactar, $\hat d_j$ las estimaciones y $\epsilon_{d,j}$ cotas demostrables de error. El CBF de separación se expresa como
+\begin{equation}
+ h_{d,j}=\hat d_j-d_{j}^{\mathrm{phys}}-\epsilon_{d,j}-\theta_{d,j},\qquad \theta_{d,j}\ge0.
+ \label{eq:distance}
+\end{equation}
+$\theta_{d,j}$ representa únicamente un margen \emph{adicional} de prudencia. Para la fuerza, con una cota de error $\epsilon_F$ y límite físico validado $F_{\mathrm{phys}}$, imponemos en todo momento de contacto
+\begin{equation}
+ h_F^{\mathrm{phys}}=F_{\mathrm{phys}}-(\hat F+\epsilon_F),
+ \label{eq:force}
+\end{equation}
+y, opcionalmente, una barrera de comodidad operacional más estricta $h_F^{\mathrm{soc}}=F_{\mathrm{soc}}(\theta)-(\hat F+\epsilon_F)$ con $F_{\mathrm{soc}}\le F_{\mathrm{phys}}$. Los valores de $F_{\mathrm{phys}}$ y de $d_j^{\mathrm{phys}}$ requieren identificación del hardware y evaluación de riesgo; \emph{no} se fijan arbitrariamente.
+
+La idea evita un error frecuente: una palma autorizada puede hacer contacto, pero ello no autoriza contacto del codo, torso o base. Durante $m=C$, el autómata sustituye \emph{solo} la restricción de separación de la superficie prevista por restricciones de fuerza, velocidad relativa, cizalladura y salida. Para las demás superficies, \eqref{eq:distance} permanece activa.
+
+\subsection{Regla deseada por belief, sin cambios discontinuos}
+Para cada margen adicional propongamos, como señal deseada y no como asignación instantánea,
+\begin{equation}
+\theta_{d,j}^{\star}=\mathrm{sat}_{[0,\bar\theta_j]}\!\left(\theta_{0,j}
+ +k_{r,j}p^+_{W,t}+k_{e,j}E_t^{\mathrm{exc}}\right).
+\label{eq:theta_des}
+\end{equation}
+El objetivo de fuerza social decrece cuando aumentan riesgo e incertidumbre, con saturación dentro de la capacidad certificada. Para evitar movimientos bruscos, elevamos $\theta$ a estado dinámico controlable:
+\begin{equation}
+ \dot\theta=v_\theta,\quad \theta\in\Theta,\quad
+ v_\theta\in\calV. \label{eq:gov}
+\end{equation}
+Esto es más fuerte que filtrar $H_t$ con una media móvil: el propio CBF determina qué \emph{velocidad de ajuste} es viable simultáneamente con los límites motores.
+
+\subsection{QP conjunto de acción y evolución de barreras}
+Sea $u_{\mathrm{nom}}$ la acción instantánea propuesta por un controlador guionizado, WBC o VLA. Definimos el \emph{viability governor}:
+\begin{align}
+ \min_{u,v_\theta}\; & \|u-u_{\mathrm{nom}}\|_R^2+
+ \rho\|v_\theta-\kappa(\theta^\star-\theta)\|^2 \label{eq:qp}\\
+ \text{s.a.}\; & u\in\calU,\quad v_\theta\in\calV,\quad\theta\in\Theta, \nonumber\\
+ & L_{f_m}h_i+L_{g_m}h_i u+\nabla_\theta h_i^\top v_\theta
+ +\partial_t^{\mathrm{exo}}h_i \nonumber\\[-2pt]
+ &\hspace{20mm}\ge-\alpha_i(h_i)+\delta_i,
+ \quad i\in I(m). \nonumber
+\end{align}
+Aquí $\delta_i\ge\sup_{w\in\calW}[-\nabla_xh_i^\top w]$ cubre perturbaciones; $\partial_t^{\mathrm{exo}}h_i$ recoge el desplazamiento humano, errores temporales y otras dependencias exógenas. Los límites de $\Theta$ se mantienen con un regulador proyectado o restricciones de viabilidad en $v_\theta$. Cuando $h_i$ es diferenciable y afín en $u,v_\theta$, \eqref{eq:qp} es convexo cuadrático con restricciones lineales.
+
+Si la nueva distancia deseada crece demasiado rápido, el optimizador puede ralentizar el aumento de $\theta_d$ en vez de producir una corrección agresiva del brazo. Si no existe ningún par factible $(u,v_\theta)$, \emph{no se dispone de garantía} y debe activarse una política de respaldo previamente verificada. Un \emph{slack} no puede utilizarse para declarar que las restricciones duras siguen garantizadas.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[>=Latex,
+  every node/.style={font=\footnotesize},
+  block/.style={draw=ink,rounded corners=2pt,minimum height=10mm,align=center,fill=papergray},
+  arrow/.style={->,line width=.85pt,draw=accent}]
+\node[block,text width=2.85cm] (sense) at (1.55,2.1) {Visión RGB-D y proxémica\\Sensores táctiles};
+\node[block,text width=2.35cm] (hmm) at (5.10,2.1) {HMM condicionado\\$b_t$ y $p_W^+$};
+\node[block,text width=2.95cm] (sign) at (8.95,2.1) {Riesgo $p_W^+$, exceso $E^{\rm exc}$\\Objetivo $\theta^\star$};
+\node[block,text width=2.95cm,fill=orange!10] (mode) at (13.20,2.1) {Autómata de fase $A/C/R$\\Guardas de contacto};
+\node[block,text width=2.75cm] (policy) at (3.00,0) {Política nominal\\Guion / GR00T};
+\node[block,text width=3.3cm] (qp) at (8.05,0) {QP conjunto $u,\dot\theta$\\CBF físico + social};
+\node[block,text width=2.85cm] (robot) at (13.10,0) {WBC local y actuadores\\Unitree G1};
+\draw[arrow] (sense.east)--(hmm.west);
+\draw[arrow] (hmm.east)--(sign.west);
+\draw[arrow] (sign.east)--(mode.west);
+\draw[arrow] (sense.south) |- (policy.west);
+\draw[arrow] (policy.east)--node[above]{\scriptsize $u_{nom}$}(qp.west);
+\draw[arrow] (sign.south) -- (qp.north);
+\draw[arrow] (mode.south) -- (robot.north);
+\draw[arrow] (qp.east)--node[above]{\scriptsize $u_{safe}$}(robot.west);
+\end{tikzpicture}
+\caption{Arquitectura propuesta, no resultados implementados. La salida HMM modula \emph{márgenes sociales}; los límites físicos robustos permanecen independientes del HMM. La variable $\theta$ evoluciona dentro del propio QP.}
+\label{fig:arch}
+\end{figure*}
+
+\subsection{Protocolo de contacto y liberación}
+El autómata emplea modos $A$ (aproximación), $C$ (contacto autorizado) y $R$ (salida). Un gesto voluntario inequívoco o señal de autorización definida en el protocolo es condición operativa necesaria para $A\!\to\!C$; un posterior HMM alto en \emph{engaged} por sí solo no constituye consentimiento. Para pasar a $C$ se exige, además, pertenencia al conjunto seguro de contacto: palma localizada, sensor de fuerza preparado y límites de los demás eslabones satisfechos. Una señal explícita de retirada, fallo de sensor crítico, fuerza excesiva o imposibilidad de garantizar el contacto activa $R$ y una acción de respaldo con liberación controlada. Si la fuerza supera un umbral de hardware se aplican los dispositivos y límites propios del sistema, no se espera a la actualización HMM.
+
+Para impedir \emph{chattering} se usan histéresis y tiempos mínimos de permanencia cuando sean compatibles con la respuesta de emergencia. La liberación crítica no debe quedar artificialmente retrasada por esos tiempos.
+
+\section{Garantías formales y límites}
+\begin{theorem}[Invariancia robusta condicional del sistema extendido]
+Considérese un intervalo de tiempo en que el modo $m$ permanece fijo. Supóngase: (A1) $f_m,g_m$ y las $h_i(x,\theta,t)$ localmente Lipschitz, con derivadas adecuadas; (A2) $w\in\calW$ y las incertidumbres geométricas/de fuerza incluidas en sus cotas; (A3) las restricciones del QP \eqref{eq:qp} tienen solución admisible medible casi en todo instante, incluyendo la viabilidad de $\Theta$; (A4) el estado inicial pertenece a
+$\calC_m(t_0)=\{(x,\theta): h_i(x,\theta,t_0)\ge0,~\forall i\in I(m)\}$.
+Entonces, toda trayectoria absolutamente continua que aplica una solución admisible de \eqref{eq:qp} permanece en $\calC_m(t)$ mientras las hipótesis se mantengan. Si las conmutaciones son localmente finitas (sin Zeno) y en cada conmutación $m^-\!\to m^+$ se exige además $(x,\theta)\in\calC_{m^+}(t_s)$ y existe solución posterior, la invariancia se extiende a la ejecución híbrida.
+\label{thm:inv}
+\end{theorem}
+\begin{proof}
+Para casi todo $t$ y para cada restricción activa,
+$\dot h_i=L_{f_m}h_i+L_{g_m}h_i u+\nabla_\theta h_i^\top v_\theta+\partial_t^{\rm exo}h_i+\nabla_xh_i^\top w$.
+Como $\delta_i\ge-\nabla_xh_i^\top w$, el QP implica $\dot h_i\ge-\alpha_i(h_i)$. Por el principio de comparación, desde $h_i(t_0)\ge0$ no puede cruzarse a $h_i<0$ durante el modo fijo, bajo las hipótesis de regularidad. En cada transición, la condición de entrada segura evita un salto negativo de las barreras del nuevo modo; por inducción sobre conmutaciones admisibles se obtiene el resultado híbrido.\qedhere
+\end{proof}
+
+\begin{remark}[Lo que el teorema \emph{no} demuestra]
+No prueba que una persona esté psicológicamente cómoda ni que un HMM identifique correctamente sus intenciones. Tampoco resuelve por sí solo muestras discretas, retrasos no acotados, contacto impulsivo, fallos hardware, pérdida de factibilidad o un modelo de fuerzas inexacto. Si una barrera de fuerza presenta grado relativo superior a uno respecto al actuador, requiere un CBF de orden superior, un lazo de impedancia/admitancia certificado o dinámica extendida adecuada. Para implementación digital debe añadirse un margen derivado del error de muestreo/retardo o emplearse un CBF robusto discreto. El resultado es \emph{condicional}, no una garantía universal del humanoide.
+\end{remark}
+
+\begin{proposition}[Envolvente física independiente del HMM]
+Si $\theta_{d,j}\ge0$ y la cota $|d_j-\hat d_j|\le\epsilon_{d,j}$ es válida, entonces $h_{d,j}\ge0$ implica $d_j\ge d_j^{\rm phys}$, sin importar la calidad del HMM. Análogamente, $h_F^{\rm phys}\ge0$ y $|F-\hat F|\le\epsilon_F$ implican $F\le F_{\rm phys}$.
+\end{proposition}
+\begin{proof}
+Por \eqref{eq:distance}, $\hat d_j\ge d_j^{\rm phys}+\epsilon_{d,j}+\theta_{d,j}$. Luego $d_j\ge\hat d_j-\epsilon_{d,j}\ge d_j^{\rm phys}$. Para la fuerza, $F\le\hat F+\epsilon_F\le F_{\rm phys}$.\qedhere
+\end{proof}
+
+\subttl{Dificultad no resuelta} La factibilidad del QP ante trayectorias humanas arbitrarias sigue siendo un problema abierto del diseño específico. No basta con limitar $\dot\theta$: deben existir reservas de control y modos de retirada realizables. La contribución publicable requerirá caracterizar y verificar \emph{cuándo} existe esa reserva para el G1 y el modelo humano considerado.
+
+\section{Algoritmo y carga de cómputo}
+\begin{tcolorbox}[colback=papergray,colframe=ink,boxrule=.5pt,left=6pt,right=6pt,top=4pt,bottom=4pt]
+\textbf{Algoritmo 1 · Ciclo PABe-CBF (borrador)}
+\begin{enumerate}[leftmargin=*,label=\arabic*.,itemsep=1pt]
+\item Adquirir $y_t$ sincronizado; verificar frescura, oclusión y estado del actuador.
+\item Actualizar el HMM \eqref{eq:hmm} y la fase $m_t$; calcular $H_t$, $S_t$ y $E_t^{\rm exc}$.
+\item Obtener $p_{W,t}^+$ con calibración válida; si falta, activar política conservadora.
+\item Evaluar guardas de fase; si hay retirada o fallo crítico, solicitar modo $R$.
+\item Calcular $\theta_t^\star$ sin aplicarlo de golpe; obtener la acción nominal $u_{nom}$.
+\item Resolver QP conjunto \eqref{eq:qp}; aplicar $u_{safe}$ y actualizar $\theta$ con integrador seguro.
+\item Verificar señales de hardware, registrar intervención, latencia y factibilidad.
+\end{enumerate}
+\end{tcolorbox}
+
+El bucle rápido del CBF debe quedar desacoplado de las inferencias de visión más lentas. El requisito estricto del material de partida es una respuesta menor que 150 ms, mientras otra diapositiva plantea menor que 200 ms. Se adopta \emph{150 ms como criterio de diseño por confirmar} y se miden por separado latencias de adquisición, fusión, HMM, QP, transporte y ejecución. Ningún número de latencia es declarado como resultado.
+
+\section{Diseño experimental falsable}
+\subsection{Escenarios y comparación}
+\begin{table}[H]
+\centering\footnotesize
+\caption{Experimentos y ablaciones previstos.}\vspace{2pt}
+\begin{tabularx}{\columnwidth}{@{}p{.19\columnwidth}X@{}}
+\toprule
+\textbf{Bloque} & \textbf{Condición a comparar} \\
+\midrule
+Baselines & nominal sin filtro (\emph{solo simulación}); CBF físico fijo; HMM--MAP+CBF; HMM--entropía+CBF; riesgo calibrado+CBF.\\
+Modelo completo & PABe-CBF con $p_W^+$, entropía excedente, fases y $\dot\theta$ conjunto.\\
+Ablaciones & sin $E^{exc}$; sin calibración; sin regulador de viabilidad; sin separación por eslabón; HMM frente a HSMM.\\
+Estrés & retirada brusca; mano parcialmente ocluida; falso negativo táctil; contacto prematuro; fuerza lateral; persona indecisa; transición normal; cambio de dominio.\\
+\bottomrule
+\end{tabularx}
+\label{tab:ablation}
+\end{table}
+
+El desarrollo puede comenzar con el controlador guionizado y el gemelo digital ya previstos en la presentación, sin colocar GR00T en el lazo. Después se evalúa un controlador aprendido manteniendo el CBF activo; el \emph{fine-tuning} sobre trayectorias filtradas no reemplaza al supervisor de seguridad.
+
+\subsection{Variables principales}
+\begin{itemize}
+\item \textbf{Físicas}: máximos de fuerza/impulso, distancia mínima por eslabón, tasa de violaciones, saturación, tiempo de reacción de retirada, \emph{jerk} y tasa de QP infactible.
+\item \textbf{Probabilísticas}: log-loss, Brier score, calibración del evento de retirada, tasa de error por transición, intervalos de cobertura y sensibilidad a \emph{domain shift}.
+\item \textbf{Tarea}: apretón completado cuando es apropiado, rechazo respetuoso, tiempo total, falsas cancelaciones y reducción de intervención respecto al nominal.
+\item \textbf{Perceptivas}: comodidad, previsibilidad y confianza en cuestionarios anonimizados; son medidas empíricas humanas, \emph{no} variables físicamente certificadas por un CBF.
+\end{itemize}
+
+Las cifras objetivo (por ejemplo, reducción de movimientos bruscos o de QP inviables) deben pre-registrarse antes de evaluar. Se propone reportar tasas con intervalos de confianza por episodio/persona, no solo por fotograma, para evitar una falsa inflación de muestra debida a la autocorrelación temporal.
+
+\subsection{Hipótesis refutables}
+\textbf{H1.} Frente a un CBF cuyos márgenes cambian instantáneamente, el regulador reducirá correcciones abruptas y solicitudes inviables, sin incrementar violaciones físicas dentro de los supuestos de modelado.\\
+\textbf{H2.} Separar $p^+_W$ de la entropía excedente reducirá liberaciones falsas durante transiciones normales a igual sensibilidad de retirada.\\
+\textbf{H3.} Las barreras por eslabón y modos mantendrán la protección del torso/antebrazo mientras permiten contacto exclusivamente en la región de palma autorizada.\\
+\textbf{H4.} El sistema conservará una latencia compatible con el presupuesto, o identificará qué subsistema impide cumplirlo.
+
+\section{Baselines fuertes, métricas y protocolo de evaluación}
+\label{sec:benchmark}
+Esta sección concreta los comparadores que un revisor de ICRA/IROS/RA-L podría exigir. Las implementaciones de trabajos concebidos para \emph{navegación, vehículos o manipulación} serán \emph{adaptaciones al saludo con contacto}, no reproducciones de sus resultados publicados. Ninguna de las cifras siguientes es un resultado experimental.
+
+\subsection{Baselines priorizados y justificación científica}
+Para atribuir correctamente las mejoras, todos los métodos que entren en la comparación principal comparten: controlador nominal, sensores disponibles, geometría, restricciones \emph{físicas} de mano y eslabones, permisos de contacto, política de respaldo y límite de tiempo de cómputo. \emph{Solo} se cambia la regla de riesgo/márgenes y, cuando así se indica, el modo de resolverla. Se optimizan hiperparámetros en validación, nunca sobre el conjunto de prueba.
+
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Baselines principales ordenados por relevancia. \textbf{P1}: comparador imprescindible; \textbf{P2}: comparador externo de alto valor.}
+\vspace{2pt}
+\begin{tabularx}{\textwidth}{@{}p{12mm}p{38mm}X@{}}
+\toprule
+\textbf{ID} & \textbf{Método / nivel} & \textbf{Qué contrasta frente a PABe-CBF}\\
+\midrule
+B1 & CBF híbrido fijo / P1 & Control de distancia/fuerza por fase con umbrales fijos. Cuantifica la necesidad de \emph{belief}. \\
+B2 & HMM--MAP + CBF / P1 & Márgenes por estado más probable, sin entropía; mismo autómata. \\
+B3 & HMM--$H(b)$ + CBF / P1 & Márgenes instantáneos por entropía \emph{global} y $p_W$. Baseline directo de la presentación. \\
+B4 & BCBF de Han \emph{et al.} / P1 & Adaptar restricciones de riesgo de cola con creencia muestreada \cite{r2}; examina si un enfoque estocástico evita la necesidad del gobernador.\\
+B5 & CRC--CBF IROS / P1 & Adaptar el margen conforme contextual de Gonzales \emph{et al.} \cite{r5}; compara calibración del riesgo y cumplimiento.\\
+B6 & TV--CBF robusto / P1 & Adaptación de Kim--Sloth \cite{r12}, con márgenes variables y robustez, \emph{sin} QP conjunto para $\dot\theta$. Aísla la aportación del gobernador.\\
+B7 & SHIELD / P2 & Adaptar \emph{stochastic discrete-time CBF} con residual de dinámica \cite{r1}; referencia fuerte en G1, aunque su publicación evalúa navegación.\\
+B8 & RCIP + CBF fijo / P2 & Predicción de intención por conjuntos y solicitud de aclaración \cite{r18}, siempre bajo el mismo filtro físico; opción que evita contacto incierto.\\
+\bottomrule
+\end{tabularx}
+\label{tab:strongbase}
+\end{table*}
+
+\textbf{Controles que no compiten por garantía:} B0, política nominal sin filtro, \emph{solo en simulación}; sirve para cuantificar la dificultad y el coste del filtrado, nunca como sistema admisible en ensayos con personas. B1--B3 son controles de mecanismo; B4--B8 son enfoques publicados \emph{adaptados} cuyo coste y supuestos deben documentarse. La versión completa es B9 = PABe-CBF.
+
+\subttl{Los tres rivales científicamente más fuertes}
+\textbf{B5, CRC--CBF:} trabaja explícitamente en HRI, con corrección del error predictivo conforme y márgenes contextuales \cite{r5}; es la referencia de riesgo más cercana a la tarea social, aunque no modela necesariamente autorización táctil híbrida. \textbf{B4, BCBF:} incorpora cotas de concentración y riesgo de cola de una creencia no paramétrica \cite{r2}; es el rival principal para cualquier reclamación de \emph{seguridad con belief}. \textbf{B6, TV--CBF robusto:} permite márgenes cambiantes y perturbaciones \cite{r12}; es esencial para atribuir mejora a la optimización simultánea de $u$ y $\dot\theta$, y no al mero hecho de usar barreras temporales. SHIELD (B7) es especialmente importante como comparación de plataforma, pero exige adaptar un módulo de locomoción probabilístico a un problema de contacto \cite{r1}.
+
+\subsection{Métricas primarias: definiciones que permiten replicar}
+Para cada episodio $e$, se registran sellos de tiempo sincronizados de simulación/robot, activación de modo, creencia HMM, barreras, acciones, fuerza y el \emph{ground truth} de eventos humanos. Sea $z_j(t)>0$ la superación \emph{normalizada} del límite físico $j$ (distancia, fuerza o velocidad, según el modo):
+\begin{equation}
+ V_e=\mathbf{1}\!\left\{\exists t,j:\,z_j(t)>0\right\},\qquad
+ S_{e,j}=\int_0^{T_e}[z_j(t)]_+\,dt.
+ \label{eq:violmetric}
+\end{equation}
+Para evitar mezclar unidades, se informa $S_{e,j}$ \emph{por restricción}, no su suma indiscriminada. Las distancias se evalúan por \emph{eslabón}; las fuerzas excedidas y los contactos no autorizados se registran siempre, y estos últimos cuentan como violación aunque no haya fuerza excesiva. Por ejemplo, $z_{d,j}=(d_j^{\rm phys}-d_j)/d_j^{\rm phys}$ y $z_F=(F-F_{\rm phys})/F_{\rm phys}$, suponiendo umbrales positivos. No confundir un éxito de tarea con ausencia de violaciones.
+
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Métricas, orientación y unidad. \textbf{P}: resultado primario; \textbf{S}: secundario o diagnóstico.}
+\vspace{2pt}
+\begin{tabularx}{\textwidth}{@{}p{43mm}X@{}}
+\toprule
+\textbf{Resultado} & \textbf{Definición y objetivo}\\
+\midrule
+Violación física (P) & $\overline V=\frac1{N}\sum_e V_e$; episodios con $\geq1$ violación / total (\%). Reportar distancia, fuerza y contacto no autorizado por separado; $\downarrow$.\\
+Severidad / fuerza (P) & $S_{e,j}$, peor déficit por eslabón; fuerza pico (N), impulso $\int_{t_a}^{t_b}\!F_+(t)dt$ (N\,s) y fuerza por encima del límite; $\downarrow$.\\
+Retirada segura (P) & $\Delta t_R=t_{\rm release}-t_{\rm onset}$ (ms), hasta fuerza bajo umbral \emph{y} separación segura; mediana, p95 y retiradas fallidas; $\downarrow$.\\
+Cancelación falsa (P) & N.º cancelaciones/episodios sin retirada ni evento crítico, según etiquetado independiente (\%); $\downarrow$.\\
+Factibilidad QP (P) & Ciclos declarados \emph{primal infeasible} / ciclos, y episodios con fallo (\%); separarlos de \emph{timeout}, error numérico y respaldo; $\downarrow$.\\
+Éxito apropiado (P) & Saludo completado / intentos \emph{autorizados} (\%); y ausencia de contacto / episodios \emph{no autorizados} (\%); $\uparrow$.\\
+Intervención (S) & $J_{\rm int}=\sum_t\!\|u_{\rm safe}-u_{\rm nom}\|^2\Delta t$ con normalización por actuador; $\downarrow$.\\
+Suavidad (S) & p95 de $\|d^3p_{\rm palma}/dt^3\|$ (m/s$^3$) y p95 de $|\dot F|$ (N/s), usando filtrado idéntico; $\downarrow$.\\
+Tiempo real (P) & p50/p95/p99 sensor$\to$actuador (ms) y \% de ciclos que exceden el presupuesto validado de 150 ms; $\downarrow$.\\
+Predicción (S) & Brier, NLL y ECE de $p_W$; recall de retirada a FPR fija, especialmente por fase y sujeto; $\downarrow$/ $\uparrow$.\\
+Percepción (S) & Comodidad, previsibilidad, confianza y disposición a repetir, escalas informadas por participantes; interpretar por persona, no como certificado CBF.\\
+\bottomrule
+\end{tabularx}
+\label{tab:metric_defs}
+\end{table*}
+
+La \emph{salida segura} exige especificar operacionalmente cuándo se perdió contacto y cuándo la mano completó la retirada; no basta con observar que el HMM clasificó \emph{withdrawing}. Si una retirada es fallida o se interrumpe, el tiempo queda censurado y el fallo se contabiliza en una variable binaria separada. Una parada física de emergencia no debe aparecer falsamente como mejora de éxito social.
+
+\subsection{Calibración probabilística y compromiso riesgo--utilidad}
+La entropía no es una etiqueta supervisada de comodidad. El resultado HMM debe medirse ante el evento externo de retirada $y_{W,t}\in\{0,1\}$ con reglas predefinidas de anotación:
+\begin{align}
+ \mathrm{Brier} & =\frac1{M}\sum_{t=1}^{M}(p_{W,t}-y_{W,t})^2,\\
+ \mathrm{NLL}_{\rm obs} &=-\frac1M\sum_t\log p(y_t\mid y_{1:t-1}).
+\end{align}
+Aquí NLL corresponde al modelo de observación/secuencia; se reporta por separado la \emph{log-loss binaria} de $p_W$ para evitar confundir calidad del HMM con predicción de retirada. Informar \emph{expected calibration error} (ECE) con particiones y número de bins predefinidos; usar curvas de fiabilidad por fase ($A,C,R$), por participante y bajo oclusión/cambio de dominio. La etiqueta de retirada puede ser incierta: guardar el desacuerdo entre anotadores y analizar cómo afectan etiquetas ambiguas.
+
+Comparar B4/B5/B8 y PABe-CBF con \emph{fronteras riesgo--utilidad}: barrer el parámetro de prudencia en validación y graficar éxito apropiado y cancelaciones falsas frente a violación física y fallo de liberación. Elegir puntos a \emph{igual presupuesto empírico de riesgo}, no declarar superior al método que simplemente rehúsa siempre el apretón. Los métodos con nivel probabilístico $\epsilon$ deben explicar sus supuestos de cobertura, intercambio de datos y desplazamiento de dominio; el $\epsilon$ de una garantía publicada no es automáticamente un $\epsilon$ empírico transferible al G1.
+
+\subsection{Ablaciones para aislar la novedad}
+Las ablaciones parten de B9 y mantienen idénticos sensores, controlador y escenarios. Así se atribuye cada efecto al componente eliminado. A5 y A7 se restringen a simulación por seguridad.
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Contrastes causales a partir de B9 = PABe-CBF completo.}
+\vspace{2pt}
+\begin{tabularx}{\textwidth}{@{}p{17mm}X@{}}
+\toprule\textbf{ID} & \textbf{Modificación y variable que debería cambiar}\\\midrule
+A1 & Sustituir QP conjunto por $\theta\leftarrow\theta^\star$ instantáneo; medir infactibilidad, $J_{\rm int}$ y \emph{jerk}.\\
+A2 & Cambiar entropía excedente $E^{\rm exc}$ por $H(b)$ global; medir cancelaciones en transiciones normales.\\
+A3 & Quitar $p_W^+$ conservando entropía; medir retiradas fallidas, \emph{recall} y calibración.\\
+A4 & Quitar calibración $p_W^+$ y usar $b_W$ crudo; medir cobertura del riesgo y fallos con \emph{shift}.\\
+A5 & Sustituir barreras por eslabón por una única barrera geométrica (\emph{solo simulación}); medir contactos incorrectos.\\
+A6 & HMM $\leftrightarrow$ HSMM con duración explícita, mismas observaciones y coste documentado; medir retardo y falsas alarmas.\\
+A7 & Sin modalidad táctil (\emph{solo simulación}); aislar el valor de la detección de inicio/liberación de contacto.\\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Diseño de escenarios, particiones y análisis estadístico}
+Se proponen al menos \textbf{seis familias de escenarios}: (i) apretón consentido estable, (ii) retirada repentina antes del contacto, (iii) retirada durante el contacto, (iv) duda legítima y transición inocua de fase, (v) oclusión visual/detección táctil tardía y (vi) perturbación de fuerza, base o latencia. Variar además velocidad humana, distancia inicial, morfología, posición relativa, ruido de sensores y retardo de actuadores. Cada método debe recibir \emph{las mismas semillas y trayectorias humanas} por episodio; si una política modifica la respuesta humana, registrar ese acoplamiento y recurrir a interacción contrafactual o escenarios interactivos equivalentes.
+
+\textbf{Protocolo en tres niveles.} (1) En Isaac Sim, ejecutar una batería inicial de al menos \emph{500 episodios por familia y método} con semillas apareadas (valor orientativo, ajustar por análisis de potencia y riesgo observable), incluyendo pruebas adversariales; (2) evaluar con un controlador nominal distinto o GR00T y \emph{participantes/dominios completamente excluidos} de entrenamiento/calibración; (3) ejecutar un estudio piloto con personas \emph{solo después de superar las puertas de seguridad de simulación}, revisión ética, consentimiento explícito, límites de hardware y supervisor humano. Los datos para entrenamiento del HMM, calibración conforme, selección de hiperparámetros y test final deben ser disjuntos por \emph{participante} y sesión, no simplemente por fotograma.
+
+\textbf{Reporte:} medias e intervalos de confianza de 95\% mediante \emph{bootstrap pareado por episodio} en simulación y \emph{bootstrap jerárquico por participante} en ensayos humanos. Para métricas binarias, informar también intervalos binomiales adecuados; para tiempos de liberación, distribución completa y porcentaje de censura. Contrastes primarios \emph{pre-registrados}: B9 vs B6 sobre factibilidad y suavidad (H1), B9 vs B3/B5 sobre cancelaciones a sensibilidad de retirada equiparada (H2), B9 vs B1 sobre contacto autorizado e invasión de otras superficies (H3), y latencia y \emph{deadlines} de B9 vs B1/B7 (H4). Aplicar corrección por multiplicidad donde corresponda; no inferir \emph{equivalencia} de un $p$-valor no significativo.
+
+\textbf{Precaución de seguridad estadística:} cero violaciones observadas \emph{no} implica riesgo cero. Si se observan $0$ violaciones en $N$ episodios independientes e idénticamente distribuidos, el límite superior binomial unilateral exacto al 95\% es
+\begin{equation}
+ p_{\rm upper}=1-0.05^{1/N}\simeq 3/N.
+ \label{eq:zeroevents}
+\end{equation}
+Por ejemplo, $0/500$ episodios implica aproximadamente $p_{\rm upper}=0.60\%$, no una garantía física. La hipótesis de episodios independientes puede fallar con participantes o escenarios correlacionados; usar intervalos por agrupación y pruebas adversariales por separado. La aceptación de hardware exige además verificar las hipótesis del teorema, límites de fuerza adecuados y \emph{fallback} verificable; una estadística favorable por sí sola no habilita ensayos humanos.
+
+\subsection{Criterios de éxito de la tesis}
+Se justificaría una contribución sólida si B9: \emph{(i)} no empeora las tasas/severidades de violación física respecto al comparador robusto dentro de un margen de no-inferioridad pre-registrado y con potencia suficiente; \emph{(ii)} reduce fallos de factibilidad, energía de intervención y brusquedad frente a B3 y B6; \emph{(iii)} reduce cancelaciones espurias en transiciones normales sin perder \emph{recall} de retirada frente a B2/B3/B5; y \emph{(iv)} demuestra que el costo del gobernador es compatible con el plazo de respuesta real. Un criterio experimental de no-inferioridad \emph{no} sustituye la prueba condicional de invariancia, y la comodidad autoinformada sigue siendo una evaluación humana independiente.
+
+
+\section{Ruta de implementación y contribución defendible}
+\textbf{Etapa 1:} fijar un modelo de mano humana y límites físicos reproducibles en Isaac Sim; instrumentar distancia de palma, antebrazo, torso, fuerza y estado del QP. \textbf{Etapa 2:} implementar CBF fijo, luego HMM y perfil de riesgo; etiquetar retirada y transiciones normales. \textbf{Etapa 3:} añadir $\theta$ como estado y resolver el QP conjunto; verificar teorema con restricciones, errores y conmutaciones presentes. \textbf{Etapa 4:} comparar ablaciones y caracterizar factibilidad; desplegar progresivamente en el G1 bajo protocolos y supervisión humana. \textbf{Etapa 5:} si el tiempo de permanencia de la duda es decisivo, comparar HMM con HSMM sin cambiar el teorema de seguridad.
+
+\subttl{Contribución potencial a defender} Un \emph{gobernador de viabilidad de márgenes CBF} para interacción híbrida con contacto intencional, informado por \emph{dos} estadísticas de creencia con funciones distintas, junto a una prueba de invariancia extendida y una evaluación explícita de factibilidad, falsas cancelaciones y latencia. Esto ofrece una tesis más definida que una simple suma de HMM, entropía y CBF.
+
+\subttl{Amenazas a la validez} (i) la etiqueta de intención humana puede ser subjetiva; (ii) la calibración probabilística degrada bajo cambio de dominio; (iii) la fuerza de contacto depende de dinámica y sensores; (iv) una garantía matemática condicional no implica conformidad regulatoria ni seguridad psicológica; (v) la evaluación en simulación no demuestra transferencia a hardware. Los resultados futuros deben separar esas cinco dimensiones.
+
+\section{Conclusión}
+PABe-CBF constituye una \emph{hipótesis teórica estructurada}: en vez de convertir la entropía en un umbral de seguridad arbitrario, la utiliza para pedir mayor prudencia mientras el riesgo explícito de retirada y una envolvente física robusta gobiernan la admisibilidad del contacto. La aportación matemática principal es convertir los parámetros del CBF en estados cuyo movimiento se decide en el mismo QP que el control del robot. El siguiente resultado necesario para convertir el borrador en artículo científico es una caracterización de factibilidad y la comparación B1--B9 con los criterios y métricas definidos en la sección~\ref{sec:benchmark}.
+
+\clearpage
+\onecolumn
+\section*{Anexo A. Lectura crítica de 30 artículos verificables}
+\addcontentsline{toc}{section}{Anexo A. Lectura crítica de 30 artículos}
+\noindent\small Fuente: páginas oficiales de arXiv, DOI de IEEE y fichas institucionales asociadas; selección temática no sistemática, consulta 16-10-2026. \textbf{IEEE} indica publicación IEEE; \textbf{arXiv} indica depósito/preprint aunque alguna obra también haya aparecido en una conferencia distinta. Los resúmenes describen lo que aportan los trabajos, no resultados del manuscrito PABe-CBF.\normalsize
+\vspace{7pt}
+\small
+\setlength{\LTpre}{3pt}\setlength{\LTpost}{5pt}
+\setlength{\tabcolsep}{2.3pt}
+\begin{longtable}{@{}p{7mm}p{22mm}p{60mm}p{49mm}p{25mm}@{}}
+\toprule\textbf{N.} & \textbf{Área / año} & \textbf{Artículo} & \textbf{Aportación para esta tesis / límite} & \textbf{Acceso}\\\midrule
+\endfirsthead
+\multicolumn{5}{l}{\footnotesize Anexo A · Continuación de la revisión bibliográfica}\\\toprule\textbf{N.} & \textbf{Área / año} & \textbf{Artículo} & \textbf{Aportación para esta tesis / límite} & \textbf{Acceso}\\\midrule
+\endhead
+\bottomrule\endfoot
+1 & arXiv 2025 · humanoide & SHIELD: Safety on Humanoids via CBFs In Expectation on Learned Dynamics & Filtro sobre locomoción RL con incertidumbre y prueba en G1. \emph{No} estima disposición social durante apretón. & \arxiv{2505.11494}\\
+2 & arXiv 2025 · BCBF & Risk-Aware Robot Control in Dynamic Environments Using Belief Control Barrier Functions & Riesgo de cola con creencias muestrales. Comparador central; no diseñado para autorización híbrida de contacto. & \arxiv{2504.04097}\\
+3 & arXiv 2026 · observabilidad & Control Barrier--Value Functions under Partial Observability: Safety Guarantees via Conformal Prediction & Cotas de error de estimación y seguridad probabilística finita. Evita reclamar como nuevo ``belief + CBF''. & \arxiv{2608.13819}\\
+4 & arXiv 2026 · POMDP & Safety-critical Control Under Partial Observability: Reach-Avoid POMDP meets Belief Space Control & Separa llegar a objetivo, recoger información y seguridad. Relevante para tiempos y arquitectura modular. & \arxiv{2603.10572}\\
+5 & IEEE IROS 2025 · HRI & Safe Probabilistic Planning for Human-Robot Interaction using Conformal Risk Control & CBF y riesgo conformal de predicción humana. Requiere diferenciar novedad por \emph{contacto y governor}. & \doi{10.1109/IROS60139.2025.11247339}\\
+6 & IEEE/ASME T-Mech 2025 · HRC & Safe Human--Robot Collaboration With Risk Tunable Control Barrier Functions & Umbrales de riesgo en colaboración con manipulador. Referencia directa para sensibilidad de márgenes. & \doi{10.1109/TMECH.2025.3572047}\\
+7 & IEEE T-RO 2023 · red segura & BarrierNet: Differentiable Control Barrier Functions for Learning of Safe Robot Control & CBF/QP diferenciable acoplado a control neuronal. Baseline aprendido, no factor de intención social. & \doi{10.1109/TRO.2023.3249564}\\
+8 & IEEE TAC 2026 · QP & State-Action Control Barrier Functions: Imposing Safety on Learning-Based Control With Low Online Computational Costs & Filtro eficiente y ajuste por errores de aprendizaje. Referencia para factibilidad/tiempo de cómputo. & \doi{10.1109/TAC.2025.3636804}\\
+9 & IEEE ICRA 2024 · respaldo & A Learning-Based Framework for Safe Human-Robot Collaboration with Multiple Backup Control Barrier Functions & Familias de controladores de respaldo y elección según intención; contextualiza modos de emergencia. & \doi{10.1109/ICRA57147.2024.10611634}\\
+10 & IEEE ICRA 2025 · conformal & Computationally and Sample Efficient Safe Reinforcement Learning Using Adaptive Conformal Prediction & ACP + CBF ante dinámica incierta; relevante para distinguir calibración del filtro HMM. & \doi{10.1109/ICRA55743.2025.11127570}\\
+11 & IEEE T-ASE 2024 · incertidumbre & Adaptive Safety-Critical Control With Uncertainty Estimation for Human--Robot Collaboration & Restricciones adaptativas y conmutación seguimiento/evitación. Útil para robustez geométrica. & \doi{10.1109/TASE.2023.3320873}\\
+12 & arXiv 2025 · TV-CBF & Robust Adaptive Time-Varying Control Barrier Function with Application to Robotic Surface Treatment & Restricciones que varían con tiempo y perturbaciones. Antecedente clave del margen evolutivo. & \arxiv{2506.14249}\\
+13 & IEEE RA-L 2026 · contacto & Prescribed Performance-Based Data-Driven Adaptive Admittance Control for Physical Human-Robot Interaction & Admittance, desempeño y CBF de orden alto en manipulación con fuerza. Puente con contacto físico. & \doi{10.1109/LRA.2026.3701480}\\
+14 & IEEE IROS 2021 · HMM & Human-Robot greeting: tracking human greeting mental states and acting accordingly & Estima fases de saludo con HMM y genera conducta. Precedente directo de fases, sin certificación CBF. & \doi{10.1109/IROS51168.2021.9635894}\\
+15 & IEEE IROS 2022 · HMM & Coordination With Humans Via Strategy Matching & HMM para resumir estrategias de cooperación; pertinente a modos latentes no físicos. & \doi{10.1109/IROS47612.2022.9982277}\\
+16 & IEEE T-ITS 2025 · intención & Toward Proactive-Aware Autonomous Driving: A Reinforcement Learning Approach Utilizing Expert Priors During Unprotected Turns & HMM para inferir decisiones humanas ambiguas; analogía metodológica fuera de HRI con contacto. & \doi{10.1109/TITS.2024.3520589}\\
+17 & arXiv 2024 · bayesiano & Bayesian Intention for Enhanced Human Robot Collaboration & Intención multimodal interpretable en HRC. Comparador para calidad y latencia de inferencia. & \arxiv{2410.00302}\\
+18 & arXiv 2024 · calibración & Risk-Calibrated Human-Robot Interaction via Set-Valued Intent Prediction & Cobertura de hipótesis de intención y control del riesgo; advierte contra creencias muy seguras pero erróneas. & \arxiv{2403.15959}\\
+19 & arXiv 2025 · belief & Probabilistic Human Intent Prediction for Mobile Manipulation: An Evaluation with Human-Inspired Constraints & Dos capas de creencias para navegación y manipulación; útil para fase de aproximación/contacto. & \arxiv{2507.10131}\\
+20 & arXiv 2024 · entropía & Robotic Exploration using Generalized Behavioral Entropy & Introduce otra noción de entropía con sensibilidad conductual. No demuestra comodidad en HRI. & \arxiv{2402.10161}\\
+21 & arXiv 2025 · VLA & SafeVLA: Towards Safety Alignment of Vision-Language-Action Model via Constrained Learning & Restricciones durante aprendizaje de VLAs; ayuda a separar política nominal de \emph{shield} runtime. & \arxiv{2503.03480}\\
+22 & arXiv 2026 · benchmark & LIBERO-Safety: A Comprehensive Benchmark for Physical and Semantic Safety in Vision-Language-Action Models & Pruebas de seguridad física/semántica de VLA; no reemplaza evaluación de fuerzas en handshake. & \arxiv{2606.23686}\\
+23 & arXiv 2026 · evaluación & SafeVLA-Bench: A Benchmark for the Success-Safety Gap in Vision-Language-Action Models & Distingue éxito de tarea y trayectoria insegura; inspira métricas de violación y severidad. & \arxiv{2606.00773}\\
+24 & arXiv 2026 · fuerzas & ThorArena: Benchmarking Humanoid Physical Interaction with Human Motion-Force Demonstrations & Benchmark físico con FATS y replay de fuerzas; útil para evaluar humanoide, no consentimiento. & \arxiv{2607.06052}\\
+25 & arXiv 2024 · tareas & ReKep: Spatio-Temporal Reasoning of Relational Keypoint Constraints for Robotic Manipulation & Restricciones relacionales planificadas, frente a barreras certificadas sobre contacto humano. & \arxiv{2409.01652}\\
+26 & arXiv 2025 · revisión & Safe Learning for Contact-Rich Robot Tasks: A Survey from Classical Learning-Based Methods to Safe Foundation Models & Panorama crítico de aprendizaje seguro en contacto, VLA y \emph{shielding}. & \arxiv{2512.11908}\\
+27 & IEEE MED 2021 · CBF & A Control Barrier Function Approach to Human-multi-robot Safe Interaction & Distancia y campo de seguridad humano en múltiples robots; baseline de no contacto. & \doi{10.1109/MED51440.2021.9480187}\\
+28 & IEEE T-IE 2024 · intención & Neural Control for Human-Robot Interaction with Human Motion Intention Estimation & Estimación de intención del movimiento y control neural; no produce garantía de creencia híbrida. & \doi{10.1109/TIE.2024.3379681}\\
+29 & IEEE T-ASE 2025 · shared control & Shared Control With Obstacle Avoidance for UGVs & Mezcla de intención humana y control automático con CBF; contexto de arbitraje seguro. & \doi{10.1109/TASE.2025.3582522}\\
+30 & IEEE T-Cybernetics 2021 · HMM social & A Multimodal Emotional Human--Robot Interaction Architecture for Social Robots Engaged in Bidirectional Communication & HMM y modelo reactivo en afecto multimodal. Antecedente psicológico, no equivalente a seguridad psicológica probada. & \doi{10.1109/TCYB.2020.2974688}\\
+\end{longtable}
+\setlength{\tabcolsep}{6pt}
+\normalsize
+\section*{Anexo B. Orden de lectura para arrancar la rama de investigación}
+\noindent\textbf{Primera semana:} \cite{r1,r2,r5,r14,r18} para formular el problema y evitar confundir entropía, intención y garantía. \textbf{Segunda semana:} \cite{r3,r4,r8,r9,r12} para formular la invariancia, las perturbaciones, los cambios de modo y la factibilidad. \textbf{Tercera semana:} \cite{r13,r21,r22,r24,r25} para diseñar el gemelo digital, límites de fuerza, control nominal y benchmark. \textbf{Después:} implementar tres baselines mínimos (CBF fijo, HMM con margen instantáneo, y regulador PABe-CBF), antes de intentar ajustar una VLA.
+
+\section*{Referencias bibliográficas y enlaces permanentes}
+\vspace{-4pt}
+\begin{thebibliography}{30}\setlength{\itemsep}{1pt}\footnotesize
+\bibitem{r1} L. Yang et al., ``SHIELD: Safety on Humanoids via CBFs In Expectation on Learned Dynamics,'' arXiv, 2025. \arxiv{2505.11494}.
+\bibitem{r2} S. Han, M. Vahs y J. Tumova, ``Risk-Aware Robot Control in Dynamic Environments Using Belief Control Barrier Functions,'' arXiv, 2025. \arxiv{2504.04097}.
+\bibitem{r3} N. Jahanshahi y M. Chen, ``Control Barrier--Value Functions under Partial Observability: Safety Guarantees via Conformal Prediction,'' arXiv, 2026. \arxiv{2608.13819}.
+\bibitem{r4} M. Vahs, J. Verhagen y J. Tumova, ``Safety-critical Control Under Partial Observability: Reach-Avoid POMDP meets Belief Space Control,'' arXiv, 2026. \arxiv{2603.10572}.
+\bibitem{r5} ``Safe Probabilistic Planning for Human-Robot Interaction using Conformal Risk Control,'' \emph{IEEE/RSJ IROS}, 2025. \doi{10.1109/IROS60139.2025.11247339}.
+\bibitem{r6} V. K. Sharma et al., ``Safe Human--Robot Collaboration With Risk Tunable Control Barrier Functions,'' \emph{IEEE/ASME Transactions on Mechatronics}, 2025. \doi{10.1109/TMECH.2025.3572047}.
+\bibitem{r7} ``BarrierNet: Differentiable Control Barrier Functions for Learning of Safe Robot Control,'' \emph{IEEE Transactions on Robotics}, 2023. \doi{10.1109/TRO.2023.3249564}.
+\bibitem{r8} ``State-Action Control Barrier Functions: Imposing Safety on Learning-Based Control With Low Online Computational Costs,'' \emph{IEEE Transactions on Automatic Control}, 2026 (online 2025). \doi{10.1109/TAC.2025.3636804}.
+\bibitem{r9} ``A Learning-Based Framework for Safe Human-Robot Collaboration with Multiple Backup Control Barrier Functions,'' \emph{IEEE ICRA}, 2024. \doi{10.1109/ICRA57147.2024.10611634}.
+\bibitem{r10} ``Computationally and Sample Efficient Safe Reinforcement Learning Using Adaptive Conformal Prediction,'' \emph{IEEE ICRA}, 2025. \doi{10.1109/ICRA55743.2025.11127570}.
+\bibitem{r11} ``Adaptive Safety-Critical Control With Uncertainty Estimation for Human--Robot Collaboration,'' \emph{IEEE Transactions on Automation Science and Engineering}, 2024 (online 2023). \doi{10.1109/TASE.2023.3320873}.
+\bibitem{r12} Y. Kim y C. Sloth, ``Robust Adaptive Time-Varying Control Barrier Function with Application to Robotic Surface Treatment,'' arXiv, 2025. \arxiv{2506.14249}.
+\bibitem{r13} ``Prescribed Performance-Based Data-Driven Adaptive Admittance Control for Physical Human-Robot Interaction,'' \emph{IEEE Robotics and Automation Letters}, 2026. \doi{10.1109/LRA.2026.3701480}.
+\bibitem{r14} ``Human-Robot greeting: tracking human greeting mental states and acting accordingly,'' \emph{IEEE/RSJ IROS}, 2021. \doi{10.1109/IROS51168.2021.9635894}.
+\bibitem{r15} ``Coordination With Humans Via Strategy Matching,'' \emph{IEEE/RSJ IROS}, 2022. \doi{10.1109/IROS47612.2022.9982277}.
+\bibitem{r16} ``Toward Proactive-Aware Autonomous Driving: A Reinforcement Learning Approach Utilizing Expert Priors During Unprotected Turns,'' \emph{IEEE Transactions on Intelligent Transportation Systems}, 2025. \doi{10.1109/TITS.2024.3520589}.
+\bibitem{r17} V. Hernandez-Cruz, X. Zhang y K. Youcef-Toumi, ``Bayesian Intention for Enhanced Human Robot Collaboration,'' arXiv, 2024. \arxiv{2410.00302}.
+\bibitem{r18} J. Lidard et al., ``Risk-Calibrated Human-Robot Interaction via Set-Valued Intent Prediction,'' arXiv, 2024. \arxiv{2403.15959}.
+\bibitem{r19} C. A. Contreras et al., ``Probabilistic Human Intent Prediction for Mobile Manipulation: An Evaluation with Human-Inspired Constraints,'' arXiv, 2025. \arxiv{2507.10131}.
+\bibitem{r20} A. Suresh, C. Nieto-Granda y S. Martinez, ``Robotic Exploration using Generalized Behavioral Entropy,'' arXiv, 2024. \arxiv{2402.10161}.
+\bibitem{r21} B. Zhang et al., ``SafeVLA: Towards Safety Alignment of Vision-Language-Action Model via Constrained Learning,'' arXiv, 2025. \arxiv{2503.03480}.
+\bibitem{r22} R. Cui et al., ``LIBERO-Safety: A Comprehensive Benchmark for Physical and Semantic Safety in Vision-Language-Action Models,'' arXiv, 2026. \arxiv{2606.23686}.
+\bibitem{r23} J. Fan et al., ``SafeVLA-Bench: A Benchmark for the Success-Safety Gap in Vision-Language-Action Models,'' arXiv, 2026. \arxiv{2606.00773}.
+\bibitem{r24} C. Yu et al., ``ThorArena: Benchmarking Humanoid Physical Interaction with Human Motion-Force Demonstrations,'' arXiv, 2026. \arxiv{2607.06052}.
+\bibitem{r25} W. Huang et al., ``ReKep: Spatio-Temporal Reasoning of Relational Keypoint Constraints for Robotic Manipulation,'' arXiv, 2024; conferencia CoRL (PMLR), 2025. \arxiv{2409.01652}.
+\bibitem{r26} H. Zhang et al., ``Safe Learning for Contact-Rich Robot Tasks: A Survey from Classical Learning-Based Methods to Safe Foundation Models,'' arXiv, 2025. \arxiv{2512.11908}.
+\bibitem{r27} ``A Control Barrier Function Approach to Human-multi-robot Safe Interaction,'' \emph{IEEE Mediterranean Conference on Control and Automation}, 2021. \doi{10.1109/MED51440.2021.9480187}.
+\bibitem{r28} ``Neural Control for Human-Robot Interaction with Human Motion Intention Estimation,'' \emph{IEEE Transactions on Industrial Electronics}, 2024. \doi{10.1109/TIE.2024.3379681}.
+\bibitem{r29} ``Shared Control With Obstacle Avoidance for UGVs,'' \emph{IEEE Transactions on Automation Science and Engineering}, 2025. \doi{10.1109/TASE.2025.3582522}.
+\bibitem{r30} ``A Multimodal Emotional Human--Robot Interaction Architecture for Social Robots Engaged in Bidirectional Communication,'' \emph{IEEE Transactions on Cybernetics}, 2021 (online 2020). \doi{10.1109/TCYB.2020.2974688}.
+\end{thebibliography}
+\vspace{2mm}
+\noindent\small\color{ink}\textbf{Nota de alcance y atribución.} Este PDF es una \emph{propuesta científica original por desarrollar}, no una publicación revisada por pares ni una certificación de seguridad del Unitree G1. La información sobre arquitectura, fases, gemelo digital, GR00T y estado del proyecto proviene exclusivamente de la presentación entregada por el usuario (27 páginas), en particular páginas 2, 5, 8, 11--14, 18, 21 y 24. Las formulaciones PABe-CBF, proposiciones, teorema condicional y plan de evaluación son una extensión teórica propuesta aquí; los trabajos citados se listan por separado.\normalsize
+\end{document}

@@ -1,0 +1,322 @@
+% ============================================================================
+% Evaluación en el Unitree G1 simulado (MuJoCo). Generada con pabe_cbf.g1.*
+% Figuras en figures/, tablas en tables/. Requiere graphicx, booktabs, enumitem.
+% ============================================================================
+\section{Evaluación en el Unitree G1 simulado}
+\label{sec:g1}
+
+\subsection{Plataforma}
+\label{sec:g1:platform}
+Para someter la propuesta a una prueba más exigente que la abstracción planar se construyó
+un banco en MuJoCo~3.16 con el modelo oficial del Unitree~G1 con manos diestras (MuJoCo
+Menagerie). Su configuración es la siguiente:
+\begin{itemize}
+\item \textbf{Robot y control.} La base del robot se fija, porque la propuesta asume un controlador de cuerpo completo que
+estabiliza la locomoción, y se estudia el brazo derecho (7~GDL). El brazo se controla por par
+calculado con los límites de par del G1 (25\,N\,m en hombro y codo, 5\,N\,m en la muñeca). La física corre a 500\,Hz,
+el filtro CBF a 100\,Hz y el HMM a 33\,Hz. El comando articular está limitado en velocidad (2{,}5\,rad/s) y en
+aceleración (50\,rad/s$^2$), igual para todos los métodos, incluido B0.
+\item \textbf{Geometría y humano.} Los eslabones se aproximan con cápsulas de seguridad
+(brazo, antebrazo y muñeca) y la palma con una esfera. La distancia y su gradiente se obtienen de forma exacta
+con la distancia segmento--segmento y los jacobianos de MuJoCo. El humano es cinemático en 3D (torso,
+cabeza, brazo, antebrazo y mano), con IK de dos eslabones. El agarre se modela como un resorte
+físico ($K=300$\,N/m) aplicado a la palma del robot.
+\item \textbf{Percepción.} La percepción visual llega con 33\,ms de retardo, que se
+incorpora a la cota de error mediante el conjunto alcanzable.
+\item \textbf{Robustez.} La perturbación de actuación $w$ de la Ec.~\eqref{eq:dyn} se identifica en
+entrenamiento como el percentil 99{,}9 del error de velocidad cartesiana de los puntos de control,
+$w=0{,}176$\,m/s. La familia de perturbación, que viola A2 a propósito, queda excluida de esta identificación.
+\end{itemize}
+
+Las nueve familias de escenarios amplían las seis de la Sec.~\ref{sec:benchmark} con tres más:
+(vii)~embestida breve de la mano humana hacia el antebrazo del robot, que provoca pérdida temporal de
+factibilidad; (viii)~retirada ambigua, con señales débiles y lentas, alta entropía y retirada real; y (ix)~humano
+\emph{reactivo}, que se retira si el robot invade su espacio sin autorización, se acerca deprisa o tira
+con fuerza. Este último cierra el lazo humano--robot.
+
+\subsection{Protocolo y garantías de equidad}
+\label{sec:g1:fair}
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Un único núcleo de decisión.} Todos los métodos (B0--B9, A1--A11) ejecutan las mismas
+funciones de señales de riesgo y del QP (\texttt{pabe\_cbf/core.py}). Un método se distingue sólo por los
+campos de su especificación. Comparten el nominal, la geometría, las restricciones físicas, los permisos de
+contacto, la política de respaldo, los límites de actuación y las semillas.
+\item \textbf{Parámetros elegidos en validación y no en test.} Cada método con umbral de liberación (B3,
+B4, B5, B8, B9, A6, A8, A11) usa el de menor cancelación falsa entre los que detectan al menos el
+80\,\% de las retiradas en $\le$1\,s, sobre participantes de validación (3000+). B3 y B5 no alcanzan
+esa sensibilidad y operan en su punto de máxima sensibilidad. El nivel $\alpha$ de B5 (CRC) se elige junto con su umbral.
+La ley exógena de B6 se elige barriendo $\kappa\in\{1,2,4,8,16,\infty\}$ (B6$^\ast$: mínima
+infactibilidad y, a igualdad, menor jerk). Los valores elegidos fueron
+$\tau_{\rm B9}=0{,}85$, $\kappa^\ast=1$ y $\alpha_{\rm B5}=0{,}4$.
+\item \textbf{Adaptaciones corregidas antes de evaluar.} Al inspeccionar el comportamiento se detectaron
+y corrigieron tres defectos que penalizaban a comparadores concretos, no a B9:
+\begin{itemize}
+\item B4 y B5 nunca podían entrar en contacto, porque la entrada segura se comprobaba con su margen de aproximación.
+Ahora se comprueba con el margen del modo destino.
+\item B5 usaba un cuantil sin contexto. Ahora se condiciona a la velocidad de la mano.
+\item En el agarre, el par muñeca--mano humana recibía margen social. Ese margen se anuló para todos los métodos.
+\end{itemize}
+Tras las correcciones, todos los métodos completan apretones estables.
+\item \textbf{Particiones disjuntas por participante.} Entrenamiento (12), calibración (10), validación (6)
+y test (20 participantes $\times$ 9 familias $\times$ 2 semillas $=360$ episodios por método).
+El 25\,\% de validación y test presenta cambio de dominio. La sensibilidad y el experimento controlado
+usan participantes distintos (5000+ y 6000+).
+\item \textbf{Estadística.} Las tasas llevan IC~95\,\% de Clopper--Pearson. Los contrastes usan bootstrap pareado
+remuestreando participantes (4000 réplicas), y la familia de 17 contrastes pre-registrados se corrige con Holm.
+\end{enumerate}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_scene.pdf}
+\caption{Retirada durante el contacto en el G1 (MuJoCo). Esfera azul translúcida: margen
+$d^{\rm sep}+\epsilon_d+\theta_d$ alrededor de la mano humana fuera del contacto; naranja: agarre activo.
+B9 anticipa la retirada con $p_W^+$ y suelta antes. B1 sólo suelta por el tirón táctil explícito y la
+fuerza supera $F_{\rm phys}$ (Fig.~\ref{fig:g1ts}d). Vídeo: \texttt{media/g1\_B1\_vs\_B9.mp4} en el repositorio.}
+\label{fig:g1scene}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_timeseries.pdf}
+\caption{Señales internas del episodio de la Fig.~\ref{fig:g1scene}: (a) creencia; (b) $p_W^+$, $H_t$ y
+$E^{\rm exc}_t$ con el umbral $\tau$; (c) margen $\theta_d$ integrado por el gobernador frente al salto instantáneo
+de A1; (d) fuerza de interacción; (e) corrección $\|u-u_{\rm nom}\|$. Líneas rojas verticales: ciclos con QP infactible.}
+\label{fig:g1ts}
+\end{figure*}
+
+\subsection{Resultados globales y por escenario}
+\label{sec:g1:main}
+La Tabla~\ref{tab:g1main} resume los 20 métodos y la Fig.~\ref{fig:g1scen} los desglosa por escenario.
+\begin{itemize}
+\item \textbf{Seguridad física.} B9 no registró violaciones en 360 episodios, lo que da una cota unilateral del 0{,}8\,\% bajo el
+supuesto i.i.d. Lo mismo ocurre con los métodos con regla semántica de retirada. En cambio, B1 viola el límite de fuerza en el 3{,}6\,\%
+de los episodios, SHIELD (B7) en el 18{,}1\,\% y el nominal sin filtro (B0) en el 25{,}6\,\%. En todos los casos la causa son
+retiradas durante el contacto (iii) y perturbaciones (vi): con límites de aceleración, el robot no puede seguir un
+tirón rápido y la liberación por tirón explícito llega tarde.
+\item \textbf{Liberación.} Ninguna liberación de B9 falló, frente al 37\,\% de B1 y el 62\,\% de B7.
+\item \textbf{Utilidad.} El coste de la seguridad recae en la utilidad. B9 completa el 64\,\% de los apretones autorizados con un
+30\,\% de cancelaciones falsas. Esa tasa la dominan dos familias en las que \emph{ningún} método filtrado evita la pérdida
+de factibilidad: la oclusión (v), por la expansión del conjunto alcanzable, y la embestida (vii).
+\end{itemize}
+
+\input{tables/g1_main.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_scenarios.pdf}
+\caption{Resultados por escenario (filas: método; columnas: familia). Porcentaje de episodios.}
+\label{fig:g1scen}
+\end{figure*}
+
+\subsection{Atribución al mecanismo de viabilidad (H1)}
+\label{sec:g1:attr}
+Para separar el efecto del mecanismo del de la implementación se usaron cuatro controles que comparten
+código, señales y umbral, y que sólo difieren en cómo evoluciona $\theta$
+(Tabla~\ref{tab:g1attr}, Fig.~\ref{fig:g1attr}):
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{Equivalencia de implementación.} A9 es el gobernador con $\rho\to\infty$: sólo se aparta de la
+referencia $\kappa(\theta^\star-\theta)$ cuando esa referencia es inviable. B6 aplica la misma referencia de
+forma exógena. Mientras la viabilidad no restringe, ambos producen la misma trayectoria hasta $3\cdot10^{-5}$\,rad/s.
+En 26 de 27 episodios comprobados, la primera divergencia ocurre cuando el QP de B6 es infactible o el gobernador
+actúa. El restante es un cambio de conjunto activo del QP provocado por el residuo numérico de $\rho$ finito, con
+efecto $\le3\cdot10^{-3}$\,rad/s.
+\item \textbf{Mecanismo puro.} Con la misma referencia, A9 reduce los episodios con QP infactible de 55{,}3\,\%
+(B6, $\kappa=4$) a 40{,}6\,\%. El gobernador sólo está activo en el 0{,}2\,\% de los ciclos, de modo que la mejora
+se debe a la corrección por viabilidad y no a un retoque generalizado de $\theta$.
+\item \textbf{Frente a la mejor ley exógena.} Ninguna $\kappa$ iguala al gobernador en ambos ejes
+(Fig.~\ref{fig:g1attr}a). Frente a B6$^\ast$, la mejor ley elegida en validación, B9 reduce el jerk en 4{,}6\,m/s$^3$
+($p_{\rm Holm}=0{,}004$), pero la diferencia en infactibilidad no es significativa ($-0{,}8$\,pp). Frente a
+$\kappa=4$, la reducción es de $-10{,}3$\,pp y $-11{,}5$\,m/s$^3$, y frente a márgenes instantáneos (A1), de $-31{,}9$\,pp.
+\item \textbf{Optimización conjunta frente a secuencial.} Hacer avanzar $\theta$ con $u=u_{\rm nom}$ y filtrar $u$
+después (A10) aumenta la infactibilidad en 9{,}4\,pp y las cancelaciones falsas en 8{,}6\,pp respecto de B9.
+\end{enumerate}
+La lectura conjunta es la siguiente. La infactibilidad cae sobre todo por no saltar de margen y por corregir
+$\dot\theta$ sólo cuando es inviable (A9). El compromiso de coste de B9 ($\rho$ finito) añade suavidad, pero cuesta
+4{,}4\,pp de infactibilidad frente a A9. Una ley exógena bien ajustada recupera la mayor parte del beneficio en
+factibilidad. \textbf{H1 se apoya}, con un efecto moderado frente al comparador exógeno más fuerte.
+
+\input{tables/g1_attribution.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_attribution.pdf}
+\caption{(a) Infactibilidad frente a jerk para leyes exógenas de $\theta$ (B6, barrido de $\kappa$) y variantes del
+gobernador. (b) Diferencias pareadas: B9$-$B6$^\ast$ en todos los episodios y estratificadas según si B6$^\ast$
+perdió la factibilidad; A9$-$B6($\kappa=4$) aísla el mecanismo de viabilidad.}
+\label{fig:g1attr}
+\end{figure*}
+
+\subsection{Riesgo explícito frente a entropía (H2)}
+\label{sec:g1:h2}
+B3 cancela 23\,pp más que B9, pero difiere de él en dos cosas: la regla de liberación ($b_W+0{,}4H$) y el uso de
+márgenes instantáneos. A1, que usa la regla de B9 con márgenes instantáneos, cancela todavía más (60\,\%). Por eso se
+añadió el control A11: idéntico a B9 salvo por la regla de liberación $p_W^+ + 0{,}4H$, con su umbral elegido en
+validación. Con la misma sensibilidad (diferencia $-1{,}2$\,pp, n.s.), \textbf{B9 cancela 7{,}6\,pp menos que A11}
+(IC [$-$13{,}6, $-$3{,}0], $p_{\rm Holm}=0{,}004$). La diferencia se concentra en la duda inocua (45\,\% frente a 65\,\%)
+y en el humano reactivo (0\,\% frente a 10\,\%). En cambio, usar $H$ global en lugar de $E^{\rm exc}$ para los
+\emph{márgenes} (A2) no cambia las cancelaciones (+2{,}0\,pp, n.s.). \textbf{H2 se apoya en el G1 para la regla de
+liberación}, no para la forma de la incertidumbre que modula los márgenes. Esto corrige la conclusión de la
+evaluación planar, donde no se aisló la regla.
+
+\subsubsection*{Experimento controlado: $p_W$ constante, entropía variable}
+Durante 0{,}8\,s de contacto con un humano que \emph{no} se retira se impuso a todos los métodos la misma creencia
+$b=((1-p)(1-a),(1-p)a,p)$. Con $p$ fijo, $a$ desplaza masa de E a H y aumenta $H$
+(Fig.~\ref{fig:g1ctrl}, Tabla~\ref{tab:g1ctrl}). Toda liberación es falsa.
+\begin{itemize}
+\item \textbf{Métodos que mezclan entropía en la decisión.} B3 pasa del 0\,\% al 100\,\% de liberación al aumentar $H$
+con $p=0{,}1$ fijo, y HMM-MAP (B2) libera cuando H se vuelve el estado más probable.
+\item \textbf{Métodos que deciden sólo con $p_W$.} B9, B5 y A2 tienen una respuesta invariante a $H$. Su margen
+$\theta_d$ sí crece con $E^{\rm exc}$ cuando $p$ es bajo, como prevé el diseño: la incertidumbre pide prudencia,
+pero no basta para liberar.
+\end{itemize}
+Las celdas iso-entropía (Fig.~\ref{fig:g1iso}) reproducen la Proposición~1: con la misma $H$, sólo los métodos que
+usan $p_W$ distinguen las creencias con distinto riesgo de retirada.
+
+\subsubsection*{Situaciones en que ambos indicadores discrepan}
+En los datos naturales de test, cada tick se clasificó por $H$ (alta/baja) y $b_W$ (baja/media/alta)
+(Fig.~\ref{fig:g1disc}). En el cuadrante discrepante ``$H$ alta, $b_W$ baja'' (W real en $\approx$11\,\% de los
+ticks), B9 nunca ordena liberar, A11 lo hace en el 2{,}4\,\% de los ticks sin retirada y B3 en el 10{,}7\,\%. En el
+cuadrante ambiguo ``$H$ alta, $b_W$ media'' (W real en $\approx$67\,\%), B9 libera en el 78\,\% de los ticks con
+retirada y en el 62\,\% de los que no la tienen. A11, B3 y B4 liberan en todos.
+
+\input{tables/g1_contrasts.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_controlled.pdf}
+\caption{Experimento controlado con $p_W$ fijo (color) y entropía creciente. Arriba: probabilidad de liberación
+(toda es falsa). Abajo: margen medio $\theta_d$ durante la ventana impuesta.}
+\label{fig:g1ctrl}
+\end{figure*}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/g1_isoentropy.pdf}
+\caption{Celdas iso-entropía: misma $H$, distinto $p_W$ impuesto.}
+\label{fig:g1iso}
+\end{figure}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_discrepancy.pdf}
+\caption{Decisiones de liberación en los datos de test según el cuadrante ($H$, $b_W$) de la creencia.}
+\label{fig:g1disc}
+\end{figure*}
+
+\input{tables/g1_controlled.tex}
+
+\subsection{Barreras por eslabón (H3)}
+\label{sec:g1:h3}
+Ningún método con barreras por eslabón violó la separación de un eslabón no autorizado. Al sustituirlas por una
+barrera única (A5) tampoco aparecieron violaciones de eslabón en estos escenarios: el antebrazo del robot rara vez
+se acerca al cuerpo humano, salvo en la embestida, donde todos los métodos pierden la factibilidad. A cambio, A5 redujo
+las cancelaciones falsas (18{,}7\,\% frente a 29{,}8\,\%) y aumentó el éxito (79{,}8\,\% frente a 64{,}1\,\%).
+\textbf{H3 no se apoya en el G1}: en estos escenarios las barreras por eslabón tienen un coste de utilidad sin un
+beneficio de seguridad medible. Para justificarlas hacen falta escenarios en que el humano invada la zona
+del antebrazo con frecuencia.
+
+\subsection{Sensibilidad a percepción y perturbaciones}
+\label{sec:g1:sens}
+Seis factores se variaron por separado sobre todas las familias (Fig.~\ref{fig:g1sens}, Tabla~\ref{tab:g1sens}):
+\begin{itemize}
+\item \textbf{Ruido de posición.} Hasta 4 veces el nominal, de modo que a partir de $\approx$2{,}5 veces se viola la cota $\epsilon_d$.
+\item \textbf{Retardo visual adicional.} Hasta 150\,ms.
+\item \textbf{Ruido de las observaciones del HMM.} Hasta 3 veces el nominal.
+\item \textbf{Empujones de hasta 30\,N sobre el antebrazo.}
+\item \textbf{Retardo táctil.} Hasta 0{,}5\,s.
+\item \textbf{Amplitud de la embestida.} Hasta 24\,cm.
+\end{itemize}
+El resultado es claro: la degradación recae en la utilidad y no en la seguridad. B9 no registró violaciones en ningún
+nivel; B1 empezó a violar con empujones de 30\,N (3\,\%). En cambio, las cancelaciones falsas de B9 suben del
+28\,\% al 82\,\% con 4 veces el ruido de posición y al 100\,\% con 3 veces el ruido de observación: el HMM deja de
+distinguir disposición y el filtro se vuelve conservador. Con niveles moderados (2 veces el ruido de posición), B9 se
+degrada menos que B3 y B5 (67\,\% frente a 100\,\%).
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_sensitivity.pdf}
+\caption{Sensibilidad: violación física, cancelación falsa y episodios con QP infactible frente a la severidad de cada
+factor (36 episodios por nivel y método; 12 en la embestida).}
+\label{fig:g1sens}
+\end{figure*}
+
+\input{tables/g1_sensitivity.tex}
+
+\subsection{Comportamiento ante la pérdida temporal de factibilidad}
+\label{sec:g1:feas}
+En la oclusión y la embestida \emph{todos} los métodos filtrados pierden la factibilidad
+(Tabla~\ref{tab:g1feas}, Fig.~\ref{fig:g1feas}). Lo que distingue a los métodos es qué ocurre durante la pérdida:
+\begin{itemize}
+\item \textbf{B9.} El 45\,\% de sus episodios contiene algún intervalo infactible, con una duración mediana de 105\,ms
+(p95 = 390\,ms). Todos los intervalos se recuperaron y ninguno produjo violación física, gracias a la política de
+respaldo y a que la pérdida suele deberse a cotas de incertidumbre que se expanden y no a un contacto real.
+\item \textbf{SHIELD (B7).} Su margen aprendido no es una cota, y el 34\,\% de sus pérdidas de factibilidad terminan en
+violación (de fuerza).
+\item \textbf{B1.} El 8\,\% de sus pérdidas termina en violación.
+\end{itemize}
+
+\input{tables/g1_feasibility.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/g1_feasibility.pdf}
+\caption{Pérdida temporal de factibilidad: frecuencia, duración del intervalo más largo y violaciones durante o
+después de la pérdida.}
+\label{fig:g1feas}
+\end{figure*}
+
+\subsection{Coste computacional y calibración}
+\label{sec:g1:cost}
+\begin{itemize}
+\item \textbf{Cómputo.} La capa de seguridad de B9 requiere 1{,}27/2{,}10/2{,}22\,ms (p50/p95/p99) por ciclo en Python,
+con un máximo de 6{,}0\,ms. El QP conjunto de 9 variables tarda 0{,}21\,ms en la mediana. Ningún ciclo de B9 superó los
+150\,ms; en todo el test, sólo 3 de 4{,}4 millones de ciclos lo hicieron, todos de A9 y aislados, atribuibles a la
+máquina compartida (Tabla~\ref{tab:g1lat}). A la latencia sensor$\to$actuador modelada se suman 33\,ms de percepción visual y la
+dinámica del lazo de par.
+\item \textbf{Calibración.} La cota isotónica de $p_W^+$ obtiene un ECE de 0{,}010 frente a 0{,}029 por bins, y un
+AUROC de 0{,}931 frente a 0{,}808 (Fig.~\ref{fig:g1rel}).
+\item \textbf{Variantes sin beneficio.} El HSMM (A6) no mejora a B9 y la modalidad táctil (A7) no aporta en estos
+escenarios, porque la retirada se detecta antes visualmente. En cambio, quitar $p_W^+$ (A3) produce un 3{,}1\,\% de
+violaciones y un 31\,\% de liberaciones fallidas, y usar $b_W$ sin calibrar (A4), un 15\,\% de liberaciones fallidas.
+\end{itemize}
+
+\input{tables/g1_latency.tex}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/g1_reliability.pdf}
+\caption{Fiabilidad de la señal de retirada en el G1 (test).}
+\label{fig:g1rel}
+\end{figure}
+
+\input{tables/g1_families.tex}
+
+\subsection{Amenazas a la validez}
+\label{sec:g1:threats}
+\begin{enumerate}[label=(\roman*)]
+\item La base está fija y no se modela la locomoción ni el equilibrio.
+\item El humano es cinemático, con contacto por resorte. Sólo la familia (ix) reacciona al robot.
+\item Las observaciones del HMM son sintéticas.
+\item B4, B5, B7 y B8 son adaptaciones. Sus parámetros naturales se ajustaron en validación, pero no se reprodujeron
+sus resultados publicados.
+\item Las adaptaciones de B4 y B5 y el par adyacente se corrigieron tras una primera ejecución. Las cifras reportadas
+proceden de una ejecución completa posterior, con validación y test repetidos.
+\item El control A11 se añadió después de ver los resultados para aislar H2, con su propio umbral de validación.
+Debe leerse como análisis confirmatorio de un mecanismo, no como contraste pre-registrado.
+\item La latencia excluye la percepción real.
+\end{enumerate}
+
+\subsection{Síntesis}
+\label{sec:g1:summary}
+En el G1 simulado, PABe-CBF (B9) no presentó ninguna violación física y ninguna liberación fallida, frente a
+un 3--26\,\% de violaciones en los comparadores sin regla de retirada. Sus contribuciones atribuibles son tres:
+\begin{itemize}
+\item \textbf{Mecanismo de viabilidad.} Con el mismo código, corregir $\dot\theta$ sólo cuando es inviable reduce la
+infactibilidad en 15\,pp. Frente a la mejor ley exógena ajustada, la ventaja se limita a la suavidad.
+\item \textbf{Regla de liberación basada sólo en $p_W^+$.} Con la misma sensibilidad, cancela 7{,}6\,pp menos que la
+misma regla con entropía, y la diferencia se concentra en las situaciones en que entropía y riesgo discrepan.
+\item \textbf{Riesgo explícito calibrado.} Es necesario para no fallar las liberaciones.
+\end{itemize}
+No se encontró beneficio de las barreras por eslabón (H3) ni de la entropía excedente frente a la global en los
+márgenes. El rendimiento es frágil ante el ruido de observación del HMM: la seguridad se mantiene, pero la utilidad
+colapsa.

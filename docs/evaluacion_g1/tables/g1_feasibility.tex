@@ -1,0 +1,25 @@
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Comportamiento ante la pérdida temporal de factibilidad (test). Intervalo: desde el primer ciclo infactible hasta que el QP vuelve a ser factible con todas las barreras estimadas $\ge0$.}
+\label{tab:g1feas}
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrr}
+\toprule
+Método & Ep. con pérdida \% & Intervalos/ep. & Duración mediana (ms) & p95 (ms) & Sin recuperar \% & Violación \% \\
+\midrule
+B1 CBF fijo & 43{,}9 & 0{,}54 & 120 & 410 & 0{,}0 & 8{,}2 \\
+B2 HMM-MAP & 80{,}3 & 1{,}24 & 130 & 642 & 0{,}7 & 0{,}0 \\
+B3 HMM-$H(b)$ & 70{,}0 & 0{,}85 & 110 & 454 & 0{,}0 & 0{,}0 \\
+B4 BCBF & 79{,}4 & 1{,}25 & 35 & 400 & 0{,}0 & 0{,}3 \\
+B5 CRC-CBF & 66{,}7 & 0{,}91 & 125 & 442 & 0{,}0 & 0{,}0 \\
+B6 TV-CBF & 45{,}8 & 0{,}53 & 110 & 418 & 0{,}0 & 0{,}0 \\
+B7 SHIELD & 52{,}8 & 0{,}57 & 80 & 365 & 0{,}0 & 34{,}2 \\
+B8 RCIP & 41{,}9 & 0{,}48 & 110 & 405 & 0{,}0 & 0{,}7 \\
+B9 PABe-CBF & 45{,}0 & 0{,}50 & 105 & 390 & 0{,}0 & 0{,}0 \\
+A1 sin gobernador & 76{,}9 & 0{,}94 & 110 & 430 & 0{,}0 & 0{,}0 \\
+A9 $\rho\to\infty$ & 40{,}6 & 0{,}41 & 100 & 400 & 0{,}0 & 0{,}0 \\
+A10 secuencial & 54{,}4 & 0{,}66 & 120 & 410 & 0{,}0 & 0{,}0 \\
+\bottomrule
+\end{tabular}}
+\end{table*}

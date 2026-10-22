@@ -1,0 +1,24 @@
+\begin{table*}[!t]
+\centering\footnotesize
+\caption{Resultados en el test v2 (participantes no vistos). Porcentajes por episodio con IC 95\,\% de Clopper--Pearson. $F_{p95}$: percentil 95 de la fuerza pico por episodio. Sens.: retiradas detectadas por la regla semántica en $\le$1\,s. Infact.: episodios con $\ge$1 ciclo QP infactible.}
+\label{tab:main}
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrrrrr}
+\toprule
+Método & Viol. física \% & Cont. no aut. \% & $F_{p95}$ (N) & Lib. fallida \% & Sens. \% & Canc. falsa \% & Éxito \% & Infact. \% & Jerk p95 & $J_{int}$ \\
+\midrule
+B0 nominal & 54{,}8 \scriptsize[50{,}8, 58{,}9] & 47{,}3 & 15{,}4 & 10{,}9 \scriptsize[5{,}6, 18{,}7] & 0{,}0 & 10{,}3 \scriptsize[7{,}1, 14{,}3] & 89{,}7 & 0{,}0 & 176 & 0{,}000 \\
+B1 CBF fijo & 4{,}3 \scriptsize[2{,}8, 6{,}3] & 0{,}0 & 19{,}7 & 15{,}7 \scriptsize[10{,}5, 22{,}1] & 0{,}0 & 8{,}7 \scriptsize[5{,}7, 12{,}4] & 91{,}3 & 22{,}3 & 326 & 0{,}294 \\
+B2 HMM-MAP & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 8{,}0 & 0{,}0 \scriptsize[0{,}0, 2{,}4] & 88{,}3 & 12{,}7 \scriptsize[9{,}1, 17{,}0] & 87{,}0 & 29{,}0 & 365 & 0{,}212 \\
+B3 HMM-$H(b)$ ($\tau$=1{,}0) & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 7{,}9 & 0{,}0 \scriptsize[0{,}0, 2{,}4] & 85{,}3 & 7{,}7 \scriptsize[4{,}9, 11{,}3] & 92{,}0 & 25{,}7 & 365 & 0{,}217 \\
+B4 BCBF & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 6{,}0 & 0{,}0 \scriptsize[0{,}0, 2{,}3] & 93{,}3 & 10{,}3 \scriptsize[7{,}1, 14{,}3] & 85{,}0 & 3{,}3 & 382 & 0{,}359 \\
+B5 CRC-CBF ($\tau$=0{,}95) & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 7{,}3 & 0{,}0 \scriptsize[0{,}0, 2{,}3] & 85{,}3 & 5{,}3 \scriptsize[3{,}1, 8{,}5] & 91{,}0 & 73{,}0 & 380 & 0{,}366 \\
+B6 TV-CBF ($\tau$=0{,}98) & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 8{,}1 & 0{,}0 \scriptsize[0{,}0, 2{,}3] & 82{,}3 & 6{,}3 \scriptsize[3{,}9, 9{,}7] & 93{,}7 & 6{,}7 & 349 & 0{,}204 \\
+B7 SHIELD & 5{,}3 \scriptsize[3{,}7, 7{,}4] & 0{,}0 & 20{,}0 & 19{,}3 \scriptsize[13{,}6, 26{,}1] & 0{,}0 & 9{,}3 \scriptsize[6{,}3, 13{,}2] & 90{,}7 & 22{,}8 & 328 & 0{,}284 \\
+B8 RCIP & 0{,}3 \scriptsize[0{,}0, 1{,}2] & 0{,}0 & 8{,}5 & 1{,}5 \scriptsize[0{,}2, 5{,}2] & 84{,}3 & 19{,}0 \scriptsize[14{,}7, 23{,}9] & 81{,}0 & 5{,}3 & 343 & 0{,}164 \\
+B9 PABe-CBF ($\tau$=0{,}98) & 0{,}0 \scriptsize[0{,}0, 0{,}6] & 0{,}0 & 8{,}2 & 0{,}0 \scriptsize[0{,}0, 2{,}3] & 82{,}0 & 6{,}3 \scriptsize[3{,}9, 9{,}7] & 93{,}7 & 5{,}7 & 340 & 0{,}199 \\
+\bottomrule
+\end{tabular}}
+\\[2pt]\parbox{\linewidth}{\scriptsize B0 sólo en simulación. B2, B4, B7 y B8 usan su regla nativa sin barrido de umbral; B3, B5 y B9 usan el umbral elegido en validación para igualar sensibilidad. Jerk en m/s$^3$; $J_{int}$ adimensional (normalizado por $u_{max}$).}
+\end{table*}

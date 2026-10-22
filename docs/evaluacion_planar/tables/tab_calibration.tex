@@ -1,0 +1,17 @@
+\begin{table}[!t]
+\centering\footnotesize
+\caption{Calidad probabilística de la señal de retirada en test v2 (por tick; los ticks están autocorrelados, por lo que estas cifras son descriptivas). $p_W^+$ pretende ser una cota superior: un buen resultado es ECE bajo con sesgo conservador (ver Fig.~\ref{fig:reliability}).}
+\label{tab:calibration}
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+Señal & Brier & log-loss & ECE & AUROC & Recall@FPR5\% \\
+\midrule
+$b_W$ crudo (A4) & 0{,}060 & 0{,}297 & 0{,}055 & 0{,}959 & 0{,}821 \\
+$p_W^+$ por bins, v1 (A8) & 0{,}055 & 0{,}237 & 0{,}039 & 0{,}874 & 0{,}825 \\
+$p_W^+$ isotónica, v2 (B9) & 0{,}051 & 0{,}191 & 0{,}019 & 0{,}956 & 0{,}825 \\
+media calibrada (B5) & 0{,}053 & 0{,}224 & 0{,}036 & 0{,}955 & 0{,}823 \\
+\bottomrule
+\end{tabular}}
+\end{table}

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pabe-cbf"
+version = "0.1.0"
+description = "PABe-CBF: phase-aware, belief-entropy control barrier functions with a viability governor for human-humanoid handshakes"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Franco Rivadeneira" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "matplotlib>=3.6",
+    "quadprog>=0.1.11",
+]
+
+[project.optional-dependencies]
+g1 = ["mujoco>=3.2", "pillow>=10"]
+
+[tool.setuptools.packages.find]
+include = ["pabe_cbf*"]
