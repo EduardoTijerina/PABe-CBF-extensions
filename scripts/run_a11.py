@@ -9,15 +9,17 @@ import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from pabe_cbf.g1 import experiments as X  # noqa: E402
+from pabe_cbf.g1.model import RESULTS_DIR, check_results_dir  # noqa: E402
 from pabe_cbf.g1.train_g1 import load  # noqa: E402
 from pabe_cbf.metrics import rate  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="results/g1")
+    ap.add_argument("--out", default=RESULTS_DIR)
     ap.add_argument("--workers", type=int, default=10)
     a = ap.parse_args()
+    check_results_dir(a.out)
     md = load(os.path.join(a.out, "models.pkl"))
     V = pickle.load(open(os.path.join(a.out, "validate.pkl"), "rb"))
     specs = [f"A11@{t}" for t in (0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2)]

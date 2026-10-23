@@ -21,6 +21,7 @@ from ..paper_figs import style, save, fnum, fp, fpct, tex_table, INK, INK2, MUTE
 from ..scenarios import FAMILIES_G1, Participant, Scenario
 from .experiments import detected, controlled_cells, STRESS, TEST0
 from .geometry import G1_GEOM
+from .model import RESULTS_DIR, check_results_dir
 
 FAM_ES = {"i_stable": "i estable", "ii_withdraw_pre": "ii retirada pre", "iii_withdraw_contact": "iii retirada contacto",
           "iv_hesitation": "iv duda inocua", "v_occlusion": "v oclusión", "vi_perturbation": "vi perturbación",
@@ -552,9 +553,10 @@ def fig_latency_calib(T, extras, sp, out):
 # ======================================================================================
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="results/g1")
+    ap.add_argument("--out", default=RESULTS_DIR)
     ap.add_argument("--no-render", action="store_true")
     a = ap.parse_args()
+    check_results_dir(a.out)
     style()
     P_ = lambda n: os.path.join(a.out, n)
     with open(P_("validate.pkl"), "rb") as f:

@@ -56,29 +56,33 @@ def cross3(a, b):
     return np.array([a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]])
 
 
-def human_pose(hand):
-    """Brazo humano por IK de dos eslabones con polo del codo hacia abajo y afuera."""
-    v = H_SHOULDER - hand
+def human_pose(hand, off=None):
+    """Brazo humano por IK de dos eslabones con polo del codo hacia abajo y afuera.
+    off: desplazamiento del cuerpo humano respecto de su puesto (familias con caminata; Scenario.body)."""
+    off = np.zeros(3) if off is None else off
+    sh = H_SHOULDER + off
+    v = sh - hand
     wrist = hand + HAND_LEN * v / (np.linalg.norm(v) + 1e-9)
     a, b = H_LEN
-    d = wrist - H_SHOULDER
+    d = wrist - sh
     D = np.clip(np.linalg.norm(d), abs(a - b) + 1e-3, a + b - 1e-3)
     u = d / (np.linalg.norm(d) + 1e-9)
     x = (a * a - b * b + D * D) / (2 * D)
     r = np.sqrt(max(a * a - x * x, 0.0))
     pv = ELBOW_POLE - (ELBOW_POLE @ u) * u
     pv = pv / (np.linalg.norm(pv) + 1e-9)
-    elbow = H_SHOULDER + x * u + r * pv
-    return dict(hand=hand, wrist=wrist, elbow=elbow, shoulder=H_SHOULDER)
+    elbow = sh + x * u + r * pv
+    return dict(hand=hand, wrist=wrist, elbow=elbow, shoulder=sh, off=off)
 
 
 def human_capsules(pose):
     """Cápsulas humanas (a, b, radio) usadas por las barreras."""
+    o = pose["off"]
     return {"hand": (pose["hand"], pose["hand"], R_HAND),
             "farm": (pose["elbow"], pose["wrist"], R_FARM),
-            "uarm": (H_SHOULDER, pose["elbow"], R_UARM),
-            "torso": H_TORSO,
-            "head": (H_HEAD[0], H_HEAD[0], H_HEAD[1])}
+            "uarm": (pose["shoulder"], pose["elbow"], R_UARM),
+            "torso": (H_TORSO[0] + o, H_TORSO[1] + o, H_TORSO[2]),
+            "head": (H_HEAD[0] + o, H_HEAD[0] + o, H_HEAD[1])}
 
 
 def quat_from_z(v):

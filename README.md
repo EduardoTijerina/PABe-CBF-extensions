@@ -82,6 +82,29 @@ Detalle, estadística (bootstrap por participante con corrección de Holm) y ame
 
 Cada episodio se eligió con un criterio explícito (`media/video_episodes.txt`) y cada video muestra la estadística agregada del test.
 
+## Extensiones (octubre 2026)
+
+Cambios sobre la versión original; los resultados ya no coinciden con los publicados en `docs/`.
+
+| Cambio | Dónde |
+| --- | --- |
+| Barrera de autocolisión brazo–torso, siempre activa (el brazo atravesaba el pecho) | `pabe_cbf/g1/episode.py` |
+| Giro de la palma hacia la palma de la persona (saludo con pulgar arriba) | `pabe_cbf/g1/episode.py` |
+| `PABE_ROBOT=revo2`: G1 con manos BrainCo Revo2 (51 GDL) desde un URDF (`PABE_REVO2_URDF`, no incluido) | `pabe_cbf/g1/model.py` |
+| Familia `x_walk_hesitation`: ambos caminan uno hacia el otro, con 6 variantes de duda al azar | `pabe_cbf/scenarios.py` |
+| `iv_hesitation` amplificada en 3D (retroceso de 15 cm a mitad del alcance) | `pabe_cbf/scenarios.py` |
+| Sistema de aproximación con creencia propia (políticas P0–P3) y traspaso al sistema de saludo | `pabe_cbf/approach.py` |
+| Etapas `approach` y `walk` | `pabe_cbf/g1/experiments.py` |
+
+```bash
+python -m pabe_cbf.g1.experiments approach                 # banco A: solo la aproximación
+python -m pabe_cbf.g1.experiments walk --approach P3       # aproximación y luego saludo
+python view_walk_handshake.py --pid 4006 --models results/g1/models.pkl --approach P3   # visor
+python view_episode.py --family iv_hesitation              # repetición de un episodio
+```
+
+El port a Isaac Sim está en un proyecto aparte (PABe-Isaac).
+
 ## Limitaciones
 
 - **Solo simulación:** en el G1 la base es fija, el humano es cinemático y el contacto es un resorte.

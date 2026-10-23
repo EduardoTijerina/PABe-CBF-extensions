@@ -29,20 +29,22 @@ class ModeHMM:
 
     @classmethod
     def fit(cls, records):
-        """records: lista de (grupo, z, y(3), z_prev | -1). Estimación supervisada con suavizado."""
+        """records: lista de (grupo, z, y(NF), z_prev | -1). Estimación supervisada con suavizado.
+        Un rasgo sin muestras (siempre NaN) queda con escala 10 y nunca entra en la verosimilitud."""
+        NF = len(records[0][2])
         A = np.ones((2, NZ, NZ)) * 0.5 + np.eye(NZ)[None] * 20.0
-        vals = [[[[] for _ in range(3)] for _ in range(NZ)] for _ in range(2)]
+        vals = [[[[] for _ in range(NF)] for _ in range(NZ)] for _ in range(2)]
         for g, z, y, zp in records:
             if zp >= 0:
                 A[g, zp, z] += 1
-            for f in range(3):
+            for f in range(NF):
                 if not np.isnan(y[f]):
                     vals[g][z][f].append(y[f])
         A /= A.sum(2, keepdims=True)
-        mu = np.zeros((2, NZ, 3)); sd = np.full((2, NZ, 3), 10.0)
+        mu = np.zeros((2, NZ, NF)); sd = np.full((2, NZ, NF), 10.0)
         for g in range(2):
             for z in range(NZ):
-                for f in range(3):
+                for f in range(NF):
                     v = np.asarray(vals[g][z][f])
                     if len(v) >= 5:
                         mu[g, z, f] = np.median(v)

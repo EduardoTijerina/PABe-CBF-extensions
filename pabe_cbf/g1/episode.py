@@ -13,11 +13,12 @@ import mujoco
 import numpy as np
 
 from .. import params as P
+from ..approach import ApproachSystem, D_PERSONAL
 from ..belief import ModeHMM, ModeHSMM, entropy, group_of
 from ..core import method_signals, safety_qp, unit
-from ..scenarios import E, H, W
+from ..scenarios import E, H, W, Walk
 from . import geometry as G
-from .model import G1Index, FINGER_CLOSED, build, stand_qpos
+from .model import G1Index, FINGER_CLOSED, PALM_NORMAL, ROBOT, build, stand_qpos
 
 DT, SUB = 0.01, 5                    # control 100 Hz, física 2 ms
 PH_OFF = G.R_HAND + G.PALM_R - 0.04  # d_ph := distancia centro palma-mano - PH_OFF (R_C = 4 cm <-> agarre)
@@ -36,10 +37,23 @@ W_JOINT = 0.30                       # cota articular (rad/s) para las barreras 
 KP_CT, KD_CT = 400.0, 40.0           # ganancias del lazo de par calculado (por articulación, normalizadas)
 CRC_V = 0.15                         # B5: contexto de velocidad de la mano humana (m/s) para el cuantil conforme
 H_FILT = 0.25                        # filtro de la estimación usada SOLO por el controlador nominal
+REACH_MAX = 1.2                      # en A, mano humana más lejos que esto (desde ROBOT_REF): el brazo espera en reposo
+HANDOFF_D = G.H_TORSO[0][0] + Walk.PROX_GAP + 0.05   # traspaso: distancia torso-torso percibida (~1,08 m)
+PALM_FACE = np.array([0.0, 1.0, 0.0])   # saludo con la derecha: la palma del robot mira a su izquierda (pulgar arriba),
+                                        # hacia la palma de la persona
+# auto-colisión brazo <-> torso propio (el modelo desactiva los contactos): dos cápsulas verticales ajustadas a la
+# malla de colisión de torso_link (marco del torso) y radios reales aproximados de los eslabones (sin margen social)
+SELF_TORSO = (((0.009, -0.03, 0.05), (0.009, -0.03, 0.24)), ((0.009, 0.03, 0.05), (0.009, 0.03, 0.24)))
+R_TORSO_SELF = 0.072
+SELF_ARM = {"upperarm": 0.035, "forearm": 0.035, "wrist": 0.03}
+UPPERARM_FROM = 0.5                  # sólo la mitad distal del brazo: el hombro va montado en el costado del torso
+D_SELF = 0.01
+N_SELF = (len(SELF_ARM) + 1) * len(SELF_TORSO)   # + palma; filas al final de barriers()
 _MODEL = None
 
 
-MJB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "third_party", "g1_pabe_scene.mjb")
+MJB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "third_party",
+                        "g1_pabe_scene.mjb" if ROBOT == "g1" else f"g1_{ROBOT}_pabe_scene.mjb")
 
 
 def get_model():
@@ -57,12 +71,20 @@ def get_model():
 
 
 class G1Episode:
-    def __init__(self, method, scen, models, collect=False, clamp=None, record=False):
+    def __init__(self, method, scen, models, collect=False, clamp=None, record=False, approach=None,
+                 approach_only=False):
+        """approach: política del sistema de aproximación (familias con caminata; por defecto P3 si hay
+        modelos de aproximación, si no P0). approach_only: el episodio termina en el traspaso (banco A)."""
         self.m, self.sc, self.collect, self.clamp = method, scen, collect, clamp
         self.models = models
         self.record = [] if record else None
+        self.ap, self.approach_only = None, approach_only
+        if scen.walk is not None:
+            am = getattr(models, "approach", None)
+            self.ap = ApproachSystem(approach or ("P3" if am is not None else "P0"), am)
+        self._hold = False
         self.rng = np.random.default_rng(list(scen.rng_seed) + [99])
-        if models is not None:
+        if models is not None and models.A is not None:      # (A None: sólo modelos de aproximación)
             if method.hsmm and models.hsmm is not None:
                 base = ModeHMM(models.A, models.mu, models.sd, models.prior)
                 self.hmm = ModeHSMM(base, models.hsmm["k"], models.hsmm["A_exp"])
@@ -89,7 +111,10 @@ class G1Episode:
         palm = d.site_xpos[ix.palm_site].copy()
         mujoco.mj_jac(mm, d, jp, jr, palm, ix.palm)
         self._hand_axis = unit(palm - d.xpos[ix.palm])
+        self._palm_n = d.xmat[ix.palm].reshape(3, 3) @ PALM_NORMAL
         self._Jr = jr[:, ix.arm_v]
+        Rt, pt = d.xmat[ix.torso].reshape(3, 3), d.xpos[ix.torso]
+        self._torso = [(pt + Rt @ np.array(a), pt + Rt @ np.array(b), R_TORSO_SELF) for a, b in SELF_TORSO]
         return caps, palm, jp[:, ix.arm_v]
 
     def _dist_row(self, cap_r, cap_h, vel_h, d_phys, c_th, est, w):
@@ -168,10 +193,25 @@ class G1Episode:
         for i in range(7):
             rows.append([q[i] - ix.arm_lo[i] - 0.05, I[i], np.zeros(2), 0.0, W_JOINT, 5.0])
             rows.append([ix.arm_hi[i] - 0.05 - q[i], -I[i], np.zeros(2), 0.0, W_JOINT, 5.0])
+        # auto-colisión brazo <-> torso (común a todos los métodos; geometría propia, sin incertidumbre humana)
+        e0, zv = dict(eps_d=0.0, eps_v=0.0, growth=0.0), (np.zeros(3), np.zeros(3))
+        a, b, _, Ja, Jb = caps["upperarm"]
+        s0 = UPPERARM_FROM
+        arm = [(a + s0 * (b - a), b, SELF_ARM["upperarm"], Ja + s0 * (Jb - Ja), Jb),
+               (*caps["forearm"][:2], SELF_ARM["forearm"], *caps["forearm"][3:]),
+               (*caps["wrist"][:2], SELF_ARM["wrist"], *caps["wrist"][3:]),
+               (palm, palm, G.PALM_R, Jp, Jp)]
+        for rc in arm:
+            for tc in self._torso:
+                rows.append(self._dist_row(rc, tc, zv, D_SELF, (0.0, 0.0), e0, w))
         return rows
 
     def nominal(self, mode, q, q_home, palm, Jp, h_est, vh_est, theta, engaged, anchor, prud, pause, home_palm):
-        if mode == "A":
+        far = mode == "A" and (self._hold or np.linalg.norm(h_est - G.ROBOT_REF) > REACH_MAX)
+        if far:
+            # persona fuera de alcance, o fase de aproximación (antes del traspaso): el brazo espera en reposo
+            v, vmax = P.KP_NOM * (home_palm - palm), P.V_NOM_MAX
+        elif mode == "A":
             # el robot espera a una distancia que crece con la velocidad de la mano humana (saludo guiado por la persona)
             standoff = P.D_SEP_PALM + PH_OFF + P.EPS_D + theta[0] + 0.02 + 0.30 * np.linalg.norm(vh_est)
             target = h_est + standoff * APPROACH
@@ -188,9 +228,16 @@ class G1Episode:
         if nv > vmax:
             v = v * vmax / max(nv, 1e-9)
         # orientación: el eje muñeca->palma apunta hacia la mano humana (A y C); peso menor que la posición
-        if mode in ("A", "C"):
+        if mode in ("A", "C") and not far:
             w_rot = 0.4
-            om = 3.0 * G.cross3(self._hand_axis, unit(h_est - palm))
+            a = self._hand_axis
+            om = 3.0 * G.cross3(a, unit(h_est - palm))
+            # giro sobre el eje de la mano (sólo esa componente) para que la palma mire a la de la persona.
+            # (Alinear además las manos antiparalelas exige aducir el brazo contra el torso cerca del punto de
+            # encuentro y la barrera de auto-colisión lo impide: el agarre deja de completarse.)
+            n_t = PALM_FACE - (PALM_FACE @ a) * a
+            if np.linalg.norm(n_t) > 1e-6:
+                om = om + 3.0 * (G.cross3(self._palm_n, unit(n_t)) @ a) * a
             J6 = np.vstack([Jp, w_rot * self._Jr]); v6 = np.concatenate([v, w_rot * om])
         else:
             J6, v6 = Jp, v
@@ -217,7 +264,7 @@ class G1Episode:
         st = sc.stress
         vis_delay = VIS_DELAY + st["vis_delay"]
         dly_steps = int(round(vis_delay / DT))
-        n_steps = int(P.T_MAX / DT)
+        n_steps = int(sc.t_max / DT)
 
         mode, t_mode = "A", 0.0
         theta = P.THETA0.copy()
@@ -250,15 +297,24 @@ class G1Episode:
         infeas_iv, cur_iv = [], None                 # intervalos de pérdida de factibilidad
         reacted = False
         clamp_on, cl_th, cl_n, cl_rel, cl_jerk = False, np.zeros(2), 0, False, []
-        collect = dict(obs=[], H=[], cal=[], crc=[], rcip=[], hdur=[], track=[]) if self.collect else None
+        collect = dict(obs=[], H=[], cal=[], crc=[], rcip=[], hdur=[], track=[], obs_a=[], cal_a=[], H_a=[]) \
+            if self.collect else None
+        # sin caminata el sistema de saludo actúa desde t = 0; con caminata, desde el traspaso
+        handed_off = sc.walk is None
+        t_handoff, t_abort, z_prev_a = (None if sc.walk is not None else 0.0), None, -1
+        self._hold = not handed_off
+        if self.ap is not None:
+            self.ap.reset()
         F = 0.0
+        # proxemia (sólo con caminata): distancia torso-torso (verdad del terreno) y comportamiento de la marcha
+        prox = dict(d_min=np.inf, d_prev=np.inf, t_intrude=0.0, v_hes=[], v_entry=np.nan, t_wait=0.0)
 
         for k in range(n_steps):
             t = k * DT
             # ---------------- verdad del terreno ----------------
             h_true = sc.hand(t)
-            pose = G.human_pose(h_true)
-            pose2 = G.human_pose(sc.hand(t + DT))
+            pose = G.human_pose(h_true, sc.body(t))
+            pose2 = G.human_pose(sc.hand(t + DT), sc.body(t + DT))
             hcap_t = G.human_capsules(pose)
             hcap_2 = G.human_capsules(pose2)
             hvel_t = {key: ((hcap_2[key][0] - hcap_t[key][0]) / DT, (hcap_2[key][1] - hcap_t[key][1]) / DT)
@@ -269,6 +325,21 @@ class G1Episode:
             d_ph = np.linalg.norm(palm_a - h_true) - PH_OFF
             F = P.K_C * (d_ph - P.R_C) if engaged else -P.K_C * max(0.0, P.R_C - d_ph)
             z_true = sc.z(t)
+            if sc.walk is not None:
+                tc = 0.5 * (hcap_t["torso"][0] + hcap_t["torso"][1])
+                d_body = float(np.linalg.norm((tc - d.xpos[ix.torso])[:2]))
+                walking, v_r = sc.walk.xr[-1] > 0, sc.walk.vr
+                prox["d_min"] = min(prox["d_min"], d_body)
+                if d_body < D_PERSONAL <= prox["d_prev"] and np.isnan(prox["v_entry"]):
+                    prox["v_entry"] = v_r                    # velocidad del robot al entrar en el espacio personal
+                if d_body < D_PERSONAL and z_true != E:
+                    prox["t_intrude"] += DT                  # dentro del espacio personal de alguien que no quiere
+                if z_true == H and walking:
+                    prox["v_hes"].append(v_r)
+                prox["moved"] = prox.get("moved", False) or v_r >= 0.02
+                if walking and v_r < 0.02 and prox["moved"]:
+                    prox["t_wait"] += DT                     # detenido antes de su puesto (sin contar el arranque)
+                prox["d_prev"] = d_body
             # violaciones (magnitudes verdaderas)
             min_link = np.inf
             for rk in LINK_ROBOT:
@@ -318,15 +389,16 @@ class G1Episode:
             visible = sc.visible(t_obs)
             if visible:
                 hd = sc.hand(t_obs)
-                pd_ = G.human_pose(hd)
-                pd2 = G.human_pose(sc.hand(t_obs + DT))
+                pd_ = G.human_pose(hd, sc.body(t_obs))
+                pd2 = G.human_pose(sc.hand(t_obs + DT), sc.body(t_obs + DT))
                 off = sc.noise_pos[k_obs]
                 hc = G.human_capsules(pd_); hc2 = G.human_capsules(pd2)
                 hcap = {key: ((hc[key][0] + off, hc[key][1] + off, hc[key][2]) if key not in ("torso", "head") else hc[key])
                         for key in hc}
+                # torso/cabeza: velocidad del cuerpo sin ruido (nula salvo en las familias con caminata)
                 hvel = {key: (((hc2[key][0] - hc[key][0]) / DT + sc.noise_vel[k_obs],
                                (hc2[key][1] - hc[key][1]) / DT + sc.noise_vel[k_obs]) if key not in ("torso", "head")
-                              else (np.zeros(3), np.zeros(3))) for key in hc}
+                              else ((hc2[key][0] - hc[key][0]) / DT, (hc2[key][1] - hc[key][1]) / DT)) for key in hc}
                 last_vis = (hcap, hvel, t_obs)
                 v0 = np.linalg.norm(hvel["hand"][0]) + P.EPS_V
                 lag = vis_delay
@@ -353,10 +425,19 @@ class G1Episode:
                 tick = k // P.HMM_EVERY
                 g = group_of(mode)
                 y = sc.observe(tick, t_obs, g, t_eng if engaged else None, tactile=m.tactile)
-                if collect is not None:
+                if not handed_off:
+                    # fase de caminata: sólo el sistema de aproximación (su propia creencia sobre y_a)
+                    ya = self.ap.update(y)
+                    if collect is not None:
+                        collect["obs_a"].append((z_true, ya, z_prev_a)); z_prev_a = z_true
+                        if self.ap.hmm is not None:
+                            collect["cal_a"].append((float(self.ap.b[W]), int(z_true == W)))
+                            collect["H_a"].append((self.ap.H, z_true))
+                y = y[:3]                                   # sistema de saludo: rasgos del brazo
+                if collect is not None and handed_off:
                     collect["obs"].append((g, z_true, y, z_prev if g == g_prev else -1))
                     z_prev, g_prev = z_true, g
-                if hmm is not None:
+                if hmm is not None and handed_off:
                     b, _, Hn, _ = hmm.step(y, mode)
                     if self.clamp is not None and engaged and t_eng is not None:
                         c0 = t_eng + self.clamp["start"]
@@ -378,7 +459,7 @@ class G1Episode:
                         collect["H"].append((g, t - t_mode, Hn, sc.family, sc.t_W is None))
                         collect["cal"].append((float(b[W]), int(z_true == W)))
                         collect["rcip"].append(1.0 - float(b[z_true]))
-                        if visible and t + 0.25 < P.T_MAX:
+                        if visible and t + 0.25 < sc.t_max:
                             pr = h_est + vh_est * 0.25
                             collect["crc"].append((g, float(np.linalg.norm(sc.hand(t + 0.25) - pr)),
                                                    int(np.linalg.norm(vh_est) > CRC_V)))
@@ -387,7 +468,7 @@ class G1Episode:
 
             # ---------------- autómata A/C/R ----------------
             new_mode = None
-            if mode == "A":
+            if mode == "A" and handed_off:
                 pause_time = pause_time + DT if sig["pause"] else 0.0
                 if release_sem or pause_time > 1.5:
                     new_mode, R_reason = "R", "abort"
@@ -400,7 +481,8 @@ class G1Episode:
                                      contact_mode_margins=True)
                         th_entry = method_signals(m, self.md, self.rng, b, Hn, Eexc, "C", ctx_c)["theta_star"]
                     rows_c = self.barriers("C", engaged, caps, palm, Jp, hcap, hvel, est, th_entry, q, ix)
-                    if all(r[0] >= 0 for r in rows_c):
+                    # entrada segura respecto de la persona; la auto-colisión la impone el QP en todo momento
+                    if all(r[0] >= 0 for r in rows_c[:-N_SELF]):
                         new_mode = "C"
             elif mode == "C":
                 if abs(F_hat) > P.F_HW:
@@ -416,6 +498,22 @@ class G1Episode:
                 mode, t_mode, sem_count = new_mode, t, 0
                 if mode == "R":
                     t_R, grip_open_at = t, t + P.GRIP_DELAY
+            # marcha del robot (familias con caminata), decidida por el sistema de aproximación
+            if sc.walk is not None:
+                tc_est = 0.5 * (hcap["torso"][0] + hcap["torso"][1])
+                d_body_est = float(np.linalg.norm((tc_est - d.xpos[ix.torso])[:2]))
+                v_des = 0.0
+                if not handed_off and t_abort is None:
+                    v_des, abort = self.ap.command(d_body_est, sc.walk.vr)
+                    if abort:
+                        t_abort, v_des = t, 0.0
+                    elif sc.walk.xr[-1] <= 0 and d_body_est <= HANDOFF_D:
+                        # traspaso: ambos en su puesto -> el sistema de saludo toma el control con su creencia
+                        handed_off, t_handoff, self._hold = True, t, False
+                        if hmm is not None:
+                            hmm.reset()
+                        t_mode, sem_count, pause_time = t, 0, 0.0
+                sc.walk.step(v_des, DT)
             rhoR = rhoR_dot = 0.0
             relax = None
             if mode == "R" and not engaged:
@@ -423,8 +521,9 @@ class G1Episode:
                     t_open = t
                     rho0 = max(0.0, dhat_ph - est["eps_d"] - theta[0] - P.SAMPLE_MARGIN_D - 0.03)
                     r0 = self.barriers("R", False, caps, palm, Jp, hcap, hvel, est, theta, q, ix, 0.0, 0.0)
-                    # filas de eslabón/palma-cuerpo (la fila palma-mano, penúltima antes de los límites, tiene su rampa)
-                    relax_offs = {i: 0.03 - r[0] for i, r in enumerate(r0[:-15]) if r[0] < 0.03}
+                    # filas de eslabón/palma-cuerpo (la fila palma-mano, penúltima antes de los límites, tiene su rampa;
+                    # las de auto-colisión, al final, no se relajan)
+                    relax_offs = {i: 0.03 - r[0] for i, r in enumerate(r0[:-(15 + N_SELF)]) if r[0] < 0.03}
                 relax = (relax_offs, t - t_open)
                 rhoR = min(P.D_SEP_PALM, rho0 + RAMP_R * (t - t_open))
                 rhoR_dot = RAMP_R if rhoR < P.D_SEP_PALM else 0.0
@@ -492,7 +591,8 @@ class G1Episode:
                                         theta_star=np.array(theta_star, float), F=F, d=d_ph, b=np.array(b, float),
                                         p=sig["p"], H=Hn, Eexc=Eexc, z=z_true, u=u.copy(), u_nom=u_nom.copy(),
                                         hand=h_true.copy(), pose=pose, feasible=feasible, min_link=min_link,
-                                        palm=palm.copy(), gov=bool(m.filter and info["gov_active"])))
+                                        palm=palm.copy(), gov=bool(m.filter and info["gov_active"]),
+                                        x_r=sc.walk.robot(t) if sc.walk is not None else 0.0))
 
             # ---------------- actuación + física ----------------
             q_ref_int = q_ref.copy()
@@ -559,6 +659,9 @@ class G1Episode:
                 break
             if mode == "R" and t_closure is None and t >= t_R + 1.5 and not engaged and d_ph >= P.D_SEP_PALM:
                 break
+            if (self.approach_only and handed_off and sc.walk is not None) or \
+                    (t_abort is not None and t >= t_abort + 1.5):
+                break
 
         if cur_iv is not None:
             cur_iv["dur"] = (k + 1) * DT - cur_iv["t0"]; cur_iv["unrecovered"] = True
@@ -572,6 +675,18 @@ class G1Episode:
         auth_nom = sc.authorized and sc.t_W is None
         res = dict(
             method=m.name, family=sc.family, pid=sc.part.pid, seed=sc.rng_seed[2], shift=sc.part.shift,
+            variant=sc.walk.variant if sc.walk is not None else None, robot=ROBOT,
+            prox_min=prox["d_min"] if sc.walk is not None else np.nan,
+            prox_t_intrude=prox["t_intrude"] if sc.walk is not None else np.nan,
+            prox_v_hes=float(np.mean(prox["v_hes"])) if prox["v_hes"] else np.nan,
+            prox_v_entry=prox["v_entry"], prox_t_wait=prox["t_wait"] if sc.walk is not None else np.nan,
+            # sistema de aproximación: traspaso, abortos (correctos si la persona se va de verdad)
+            approach=self.ap.name if self.ap is not None else None,
+            handoff=handed_off if sc.walk is not None else np.nan, t_handoff=t_handoff,
+            approach_abort=(t_abort is not None) if sc.walk is not None else np.nan, t_abort=t_abort,
+            abort_detect=(t_abort is not None and sc.t_W <= t_abort <= sc.t_W + 1.5)
+            if (sc.walk is not None and sc.t_W is not None) else np.nan,
+            false_abort=(t_abort is not None) if (sc.walk is not None and sc.t_W is None) else np.nan,
             authorized=sc.authorized, withdraw=sc.t_W is not None, reacted=reacted, T=T_e,
             V_any=any(viol.values()), **{f"V_{k_}": v for k_, v in viol.items()},
             **{f"S_{k_}": v for k_, v in sev.items()}, worst_link_deficit=worst_link,
@@ -607,8 +722,14 @@ class G1Episode:
             d.mocap_pos[ix.mocap[name]] = 0.5 * (a + b)
             d.mocap_quat[ix.mocap[name]] = G.quat_from_z(b - a)
         d.mocap_pos[ix.mocap["h_hand"]] = pose["hand"]
-        d.mocap_quat[ix.mocap["h_hand"]] = G.quat_from_z(pose["hand"] - pose["wrist"])
+        # elipsoide de la mano (sólo visual; la física usa una esfera): eje z a lo largo de la mano y eje fino (y,
+        # normal de la palma) horizontal, mirando a la palma del robot: saludo con el pulgar arriba
+        z = unit(pose["hand"] - pose["wrist"])
+        y = unit(-PALM_FACE - (-PALM_FACE @ z) * z)
+        Rh = np.column_stack([G.cross3(y, z), y, z])
+        mujoco.mju_mat2Quat(d.mocap_quat[ix.mocap["h_hand"]], Rh.flatten())
+        o = pose.get("off", np.zeros(3))
         ta, tb, _ = G.H_TORSO
-        d.mocap_pos[ix.mocap["h_torso"]] = 0.5 * (ta + tb)
-        d.mocap_pos[ix.mocap["h_head"]] = G.H_HEAD[0]
-        d.mocap_pos[ix.mocap["h_legs"]] = np.array([0.78, 0.0, 0.48])
+        d.mocap_pos[ix.mocap["h_torso"]] = 0.5 * (ta + tb) + o
+        d.mocap_pos[ix.mocap["h_head"]] = G.H_HEAD[0] + o
+        d.mocap_pos[ix.mocap["h_legs"]] = np.array([0.78, 0.0, 0.48]) + o

@@ -22,6 +22,7 @@ from ..scenarios import Participant, Scenario
 from . import render as R
 from .episode import G1Episode
 from .geometry import G1_GEOM
+from .model import RESULTS_DIR, check_results_dir
 from .train_g1 import load
 
 from matplotlib import get_data_path  # noqa: E402  (fuentes DejaVu incluidas con matplotlib: portables)
@@ -184,8 +185,9 @@ def make_clip(tag, title, subtitle, specs, names, colors, k, models, sig_fn, sig
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="results/g1")
+    ap.add_argument("--out", default=RESULTS_DIR)
     a = ap.parse_args()
+    check_results_dir(a.out)
     R._camera = camera
     models = load(os.path.join(a.out, "models.pkl"))
     T = pickle.load(open(os.path.join(a.out, "test.pkl"), "rb"))

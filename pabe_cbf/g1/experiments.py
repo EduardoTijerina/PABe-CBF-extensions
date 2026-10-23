@@ -2,8 +2,10 @@
 
   train 0.. / calib 1000.. (train_g1) | validación 3000.. | test 4000.. | sensibilidad 5000.. | controlado 6000..
 
-Uso:  python -m pabe_cbf.g1.experiments {validate,test,sensitivity,controlled,equivalence,all} --out results/g1
+Uso:  [PABE_ROBOT=revo2] python -m pabe_cbf.g1.experiments {validate,test,sensitivity,controlled,equivalence,walk,all}
+      [--out results/g1 | results/g1_revo2]   (por defecto, el directorio del robot: model.RESULTS_DIR)
 Cada etapa guarda <out>/<etapa>.pkl y las posteriores leen los parámetros elegidos en validación.
+'walk' (familias con caminata, test 4000..) no forma parte de 'all'.
 """
 import argparse
 import os
@@ -15,9 +17,10 @@ import numpy as np
 from ..belief import entropy
 from ..core import METHODS, method_from_spec
 from ..metrics import rate
-from ..scenarios import FAMILIES_G1, Participant, Scenario
+from ..scenarios import FAMILIES_G1, FAMILIES_WALK, Participant, Scenario
 from .episode import G1Episode
 from .geometry import G1_GEOM
+from .model import RESULTS_DIR, check_results_dir
 from .train_g1 import load
 
 VAL0, TEST0, SENS0, CTRL0 = 3000, 4000, 5000, 6000
@@ -42,9 +45,16 @@ def _init(models):
 
 
 def _task(t):
+    """spec 'P*' (política de aproximación, p. ej. 'P3@0.7'): sólo la fase de caminata (banco A).
+    tag 'ap=P*': episodio encadenado, aproximación P* y saludo con el método spec."""
     spec, fam, pid, ep, shift, stress, clamp, tag = t
     sc = Scenario(fam, Participant(pid, shift=shift, geom=G1_GEOM), ep, stress=stress)
-    res, extra, _ = G1Episode(method_from_spec(spec), sc, _M, clamp=clamp).run()
+    if spec.startswith("P"):
+        ep_ = G1Episode(METHODS["B1"], sc, _M, approach=spec, approach_only=True)
+    else:
+        ap = tag[3:] if isinstance(tag, str) and tag.startswith("ap=") else None
+        ep_ = G1Episode(method_from_spec(spec), sc, _M, clamp=clamp, approach=ap)
+    res, extra, _ = ep_.run()
     res["tag"] = tag
     res["spec"] = spec
     return res, extra
@@ -191,6 +201,82 @@ def validate(models, a, log):
     return res
 
 
+APPROACH_SPECS = ["P0", "P1", "P2", "P3"]
+
+
+def approach(models, a, log):
+    """Banco A: el sistema de aproximación solo (fase de caminata de FAMILIES_WALK; cada episodio termina en el
+    traspaso, en el aborto o al agotar el tiempo). Participantes de test; umbrales por defecto de cada política."""
+    from ..scenarios import Walk
+    out = run(tasks_for(APPROACH_SPECS, TEST0, a.test_parts, a.walk_eps, FAMILIES_WALK), models, a.workers, False,
+              log, "aproximación", ckpt=os.path.join(a.out, "approach.ckpt"))
+    with open(os.path.join(a.out, "approach.pkl"), "wb") as f:
+        pickle.dump(dict(rows=[r for r, _ in out], specs=APPROACH_SPECS), f)
+    rows = by_spec(out)
+    mean = lambda xs: float(np.nanmean(xs)) if np.isfinite(np.asarray(xs, float)).any() else np.nan
+    log("[aproximación] traspaso / aborto en falso: con persona que llega | detección: abandon (aborto <=1,5 s tras irse)")
+    log(f"[aproximación] {'pol.':<6} {'n':>4} {'traspaso':>8} {'t trasp.':>8} {'ab.falso':>8} {'detecc.':>8} | "
+        f"{'d mín':>6} {'t intr.':>7} {'v duda':>6} {'v<1,2m':>6} {'espera':>6}")
+    for s in APPROACH_SPECS:
+        rs = rows.get(s, [])
+        come = [r for r in rs if r["t_W"] is None]
+        log(f"[aproximación] {s:<6} {len(rs):>4} {mean([r['handoff'] for r in come]):>8.2f} "
+            f"{mean([r['t_handoff'] if r['t_handoff'] is not None else np.nan for r in come]):>8.2f} "
+            f"{mean([r['false_abort'] for r in come]):>8.2f} {mean([r['abort_detect'] for r in rs]):>8.2f} | "
+            f"{mean([r['prox_min'] for r in rs]):>6.2f} {mean([r['prox_t_intrude'] for r in rs]):>7.2f} "
+            f"{mean([r['prox_v_hes'] for r in rs]):>6.2f} {mean([r['prox_v_entry'] for r in rs]):>6.2f} "
+            f"{mean([r['prox_t_wait'] for r in rs]):>6.2f}")
+    log("[aproximación] aborto en falso por variante (abandon: detección)")
+    log(f"[aproximación] {'pol.':<6} " + " ".join(f"{v[:13]:>13}" for v in Walk.VARIANTS))
+    for s in APPROACH_SPECS:
+        cells = []
+        for v in Walk.VARIANTS:
+            rv = [r for r in rows.get(s, []) if r["variant"] == v]
+            x = mean([r["abort_detect"] for r in rv]) if v == "abandon" else mean([r["false_abort"] for r in rv])
+            cells.append(f"{x:>8.2f} n={len(rv):<2}" if rv else f"{'-':>13}")
+        log(f"[aproximación] {s:<6} " + " ".join(cells))
+
+
+def walk(models, a, log, V):
+    """Encadenado: aproximación (política a.approach) y, tras el traspaso, saludo con cada método, con los
+    umbrales de validación y los participantes de test. No entra en 'all' ni en el entrenamiento del saludo."""
+    specs, _ = main_specs(V["chosen"])
+    out = run(tasks_for(specs, TEST0, a.test_parts, a.walk_eps, FAMILIES_WALK, tag=f"ap={a.approach}"), models,
+              a.workers, True, log, "caminata", ckpt=os.path.join(a.out, f"walk_{a.approach}.ckpt"))
+    with open(os.path.join(a.out, "walk.pkl"), "wb") as f:
+        pickle.dump(dict(out=out, specs=specs, chosen=V["chosen"], approach=a.approach), f)
+    rows = by_spec(out)
+    mean = lambda xs: float(np.nanmean(xs)) if np.isfinite(np.asarray(xs, float)).any() else np.nan
+    log(f"[caminata] {'método':<14} {'n':>4} {'éxito':>6} {'cancel.':>7} {'viol.':>6} {'infact.':>7} {'F pico':>7}")
+    for s in specs:
+        rs = rows.get(s, [])
+        if rs:
+            log(f"[caminata] {s:<14} {len(rs):>4} {mean([r['success'] for r in rs]):>6.2f} "
+                f"{mean([r['false_cancel'] for r in rs]):>7.2f} {np.mean([r['V_any'] for r in rs]):>6.2f} "
+                f"{np.mean([r['n_infeas'] > 0 for r in rs]):>7.2f} {np.mean([r['peak_F'] for r in rs]):>7.1f}")
+    # proxemia (Hall; distancia torso-torso): mínima, tiempo dentro del espacio personal (<1,2 m) de una persona
+    # que no está dispuesta (z != E), velocidad del robot mientras duda y al entrar en su espacio personal, espera
+    log("[caminata] proxemia: d mín (m) | t intrusión (s) | v robot con duda (m/s) | v al entrar <1,2 m | t espera (s)")
+    for s in specs:
+        rs = rows.get(s, [])
+        if rs:
+            log(f"[caminata] {s:<14} {mean([r['prox_min'] for r in rs]):>6.2f} {mean([r['prox_t_intrude'] for r in rs]):>7.2f} "
+                f"{mean([r['prox_v_hes'] for r in rs]):>7.2f} {mean([r['prox_v_entry'] for r in rs]):>7.2f} "
+                f"{mean([r['prox_t_wait'] for r in rs]):>7.2f}")
+    # por variante: falsa cancelación (variantes con saludo) y detección de la retirada (abandon)
+    from ..scenarios import Walk
+    vs = Walk.VARIANTS
+    log("[caminata] cancelación falsa por variante (abandon: detección de la retirada)")
+    log(f"[caminata] {'método':<14} " + " ".join(f"{v[:13]:>13}" for v in vs))
+    for s in specs:
+        cells = []
+        for v in vs:
+            rv = [r for r in rows.get(s, []) if r["variant"] == v]
+            x = mean([detected(r) for r in rv]) if v == "abandon" else mean([r["false_cancel"] for r in rv])
+            cells.append(f"{x:>8.2f} n={len(rv):<2}" if rv else f"{'-':>13}")
+        log(f"[caminata] {s:<14} " + " ".join(cells))
+
+
 def main_specs(chosen):
     tau9 = chosen["B9"].split("@")[1]
     specs = ["B0", "B1", "B2", chosen["B3"], chosen["B4"], chosen["B5"], chosen["B6"], "B7", chosen["B8"],
@@ -287,8 +373,9 @@ def equivalence(models, a, log, V):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["validate", "test", "sensitivity", "controlled", "equivalence", "all"])
-    ap.add_argument("--out", default="results/g1")
+    ap.add_argument("stage", choices=["validate", "test", "sensitivity", "controlled", "equivalence", "approach", "walk",
+                                      "all"])
+    ap.add_argument("--out", default=RESULTS_DIR)
     ap.add_argument("--workers", type=int, default=11)
     ap.add_argument("--val-parts", type=int, default=6)
     ap.add_argument("--val-eps", type=int, default=2)
@@ -297,8 +384,10 @@ def main():
     ap.add_argument("--sens-parts", type=int, default=4)
     ap.add_argument("--ctrl-parts", type=int, default=10)
     ap.add_argument("--target", type=float, default=0.8)
+    ap.add_argument("--walk-eps", type=int, default=6, help="episodios por participante en 'approach'/'walk' (6 variantes)")
+    ap.add_argument("--approach", default="P3", help="política de aproximación en 'walk' (encadenado)")
     a = ap.parse_args()
-    os.makedirs(a.out, exist_ok=True)
+    check_results_dir(a.out)
     logf = open(os.path.join(a.out, "experiments.log"), "a")
 
     def log(s):
@@ -313,10 +402,15 @@ def main():
         if st == "validate":
             V = validate(models, a, log)
             continue
+        if st == "approach":                     # banco A: no depende de la validación del saludo
+            approach(models, a, log)
+            log(f"[{st}] terminado en {(time.time() - t0) / 60:.1f} min")
+            continue
         if V is None:
             with open(vpath, "rb") as f:
                 V = pickle.load(f)
-        dict(test=test, sensitivity=sensitivity, controlled=controlled, equivalence=equivalence)[st](models, a, log, V)
+        dict(test=test, sensitivity=sensitivity, controlled=controlled, equivalence=equivalence,
+             walk=walk)[st](models, a, log, V)
         log(f"[{st}] terminado en {(time.time() - t0) / 60:.1f} min")
 
 
