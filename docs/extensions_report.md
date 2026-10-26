@@ -2,12 +2,12 @@
 
 Oct 22, 2026 · Eduardo Tijerina
 
-> Exported from the Claude Doc https://claude.ai/artifact/SNwBr7ZW4vA6te5m9HyF7P (Oct 27, 2026). The Isaac Sim
-> bullet in "Limitations" was updated; the hand-off diagram is described in text.
+> Exported from the Claude Doc https://claude.ai/artifact/SNwBr7ZW4vA6te5m9HyF7P (Oct 27, 2026, with the Isaac Sim
+> results); the hand-off diagram is described in text.
 
 ## Summary
 
-On top of the PABe-CBF repository we fixed two arm problems, added the G1 with Revo2 hands (51 DOF), and split the problem into two systems: one for approaching on foot and one for hesitation during the handshake. Everything is MuJoCo simulation; the full 90-minute pipeline has not been run yet, so the figures come from limited test runs with default thresholds.
+On top of the PABe-CBF repository we fixed two arm problems, added the G1 with Revo2 hands (51 DOF), and split the problem into two systems: one for approaching on foot and one for hesitation during the handshake. The results come from MuJoCo, with a port to Isaac Sim checked against it; the full 90-minute pipeline has not been run yet, so the figures come from limited test runs with default thresholds.
 
 What was done, in order:
 
@@ -96,6 +96,27 @@ The new feature y[3] is the speed at which the person approaches, with the robot
 | P0 → B1 | 100% | 100% | 0% | 0% | 0% |
 | P0 → B9 | 100% | 91% | 0% | 9% | 0% |
 
+## Isaac Sim port
+
+On Isaac Sim 5.1 (PhysX) the same episodes end the same way as in MuJoCo in 20 of 24 cases; the 4 that differ are borderline cases near a release threshold.
+
+The port is a separate project ([PABe-Isaac](https://github.com/EduardoTijerina/PABe-Isaac)). The episode loop talks to a small simulator interface with two backends. The MuJoCo backend reproduces this repository bit for bit (40/40 Revo2 and 80/80 G1 episodes, B0, B1, B2 and B9). The Isaac backend loads the same G1 + Revo2 URDF, converted to USD, with a fixed base and torque control of the arm.
+
+**MuJoCo vs Isaac** (G1 + Revo2, B0 and B1, participants 4000–4002, one episode each; the walking family uses the blind approach P0):
+
+| Family | Episodes | Same outcome and violation flag | What differs |
+| --- | --- | --- | --- |
+| i_stable | 6 | 6 | — |
+| x_walk_hesitation | 6 | 6 | — |
+| iii_withdraw_contact | 6 | 5 | B1, one release: peak force 20.1 N in MuJoCo vs 19.6 N in Isaac, on either side of the 20 N limit |
+| iv_hesitation (amplified) | 6 | 3 | B1 only: MuJoCo completes 2 and times out 1; Isaac releases 2 on a pull and times out 1 |
+
+Where outcomes agree, peak force differs by 0.5 N (median; max 3.7 N) and episode length by 0.03 s (max 0.53 s); the palm path differs by 0.5 cm (median over episodes). Isaac takes 35.7 s per episode against 1.1 s in MuJoCo.
+
+The likely cause of the borderline cases is joint friction: MuJoCo's G1 has 0.3 N·m of frictionloss per joint and PhysX has no equivalent. Not confirmed yet. Four other PhysX differences were found with probes and corrected: Jacobians at the link's centre of mass, a default mass (+14 kg) on links without inertia, drive gains reloaded from the USD on every reset, and a mass matrix without armature.
+
+**Walking demo** (participant 4006, stop_back, B1 with approach P3): the approach behaves the same, with hand-off at 4.52 s in both and contact at 7.67 s (MuJoCo) vs 7.54 s (Isaac). MuJoCo completes the handshake at 11.2 s; in Isaac the hands stay together without completing and the episode times out at 16.5 s. Not explained yet. The Isaac window replays episodes in real time, with the same kinematic leg animation as the MuJoCo viewer.
+
 ## Conclusions
 
 The changes fix real problems in the model and extend the benchmark to approaching on foot; the results are preliminary.
@@ -115,5 +136,5 @@ The figures in this report are not comparable with the original paper's: they ch
 - **Kinematic walking:** the robot doesn't balance or walk physically; in `abandon` the person backs away facing the robot because the capsule model can't turn.
 - **Hand-off:** it happens when both arrive; if the person hesitates once at their spot, the intrusion is left to the handshake system. Holding the hand-off until the person shows readiness is a small pending change.
 - **Revo2 near the midline:** some grasps stop 2 mm short of grasp distance because of the self-collision barrier; moving the meeting point a few centimetres to the robot's right would ease it.
-- **Isaac Sim:** ported in the separate project PABe-Isaac (Isaac Sim 5.1, PhysX, same episode loop behind a simulator interface). On 24 matched episodes it agrees with MuJoCo on 20 outcomes; the 4 disagreements are borderline B1 cases in the amplified `iv_hesitation`. Isaac Lab (parallel robots) is not started.
+- **Isaac Sim:** runs about 30 times slower than MuJoCo, so the full benchmark there needs Isaac Lab with many robots in parallel (not started); joint friction and the unfinished walking handshake are open.
 - **Toward a real G1:** the paper's limits still apply (scripted human, synthetic observations, force as a spring, assumed bounds).
