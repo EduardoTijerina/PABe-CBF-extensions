@@ -1,0 +1,13 @@
+[aproximación] traspaso / aborto en falso: con persona que llega | detección: abandon (aborto <=1,5 s tras irse)
+[aproximación] pol.      n traspaso t trasp. ab.falso  detecc. |  d mín t intr. v duda v<1,2m espera
+[aproximación] P0      120     1.00     4.16     0.00     0.00 |   1.01    0.00   0.48   0.25   0.01
+[aproximación] P1      120     0.61     5.37     0.10     0.75 |   1.19    0.09   0.24   0.44   3.60
+[aproximación] P2      120     0.95     4.39     0.05     0.67 |   1.06    0.02   0.38   0.31   0.13
+[aproximación] P3      120     0.97     4.18     0.03     0.83 |   1.06    0.00   0.45   0.26   0.11
+[aproximación] aborto en falso por variante (abandon: detección)
+[aproximación] pol.       stop_back      slowdown  double_pause   false_alarm       abandon arrival_delay
+[aproximación] P0         0.00 n=21     0.00 n=24     0.00 n=25     0.00 n=21     0.00 n=12     0.00 n=17
+[aproximación] P1         0.19 n=21     0.00 n=24     0.04 n=25     0.00 n=21     0.75 n=12     0.35 n=17
+[aproximación] P2         0.19 n=21     0.00 n=24     0.04 n=25     0.00 n=21     0.67 n=12     0.00 n=17
+[aproximación] P3         0.14 n=21     0.00 n=24     0.00 n=25     0.00 n=21     0.83 n=12     0.00 n=17
+[approach] terminado en 1.1 min

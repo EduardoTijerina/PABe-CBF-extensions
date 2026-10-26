@@ -90,7 +90,7 @@ Cambios sobre la versión original; los resultados ya no coinciden con los publi
 | --- | --- |
 | Barrera de autocolisión brazo–torso, siempre activa (el brazo atravesaba el pecho) | `pabe_cbf/g1/episode.py` |
 | Giro de la palma hacia la palma de la persona (saludo con pulgar arriba) | `pabe_cbf/g1/episode.py` |
-| `PABE_ROBOT=revo2`: G1 con manos BrainCo Revo2 (51 GDL) desde un URDF (`PABE_REVO2_URDF`, no incluido) | `pabe_cbf/g1/model.py` |
+| `PABE_ROBOT=revo2`: G1 con manos BrainCo Revo2 (51 GDL) desde el URDF de `robots/g1_with_revo2/` (Apache-2.0 / BSD-3; otro con `PABE_REVO2_URDF`) | `pabe_cbf/g1/model.py` |
 | Familia `x_walk_hesitation`: ambos caminan uno hacia el otro, con 6 variantes de duda al azar | `pabe_cbf/scenarios.py` |
 | `iv_hesitation` amplificada en 3D (retroceso de 15 cm a mitad del alcance) | `pabe_cbf/scenarios.py` |
 | Sistema de aproximación con creencia propia (políticas P0–P3) y traspaso al sistema de saludo | `pabe_cbf/approach.py` |
@@ -103,7 +103,9 @@ python view_walk_handshake.py --pid 4006 --models results/g1/models.pkl --approa
 python view_episode.py --family iv_hesitation              # repetición de un episodio
 ```
 
-El port a Isaac Sim está en un proyecto aparte (PABe-Isaac).
+`results/g1/` incluye los modelos entrenados (G1 Dex3) y sus registros; `results/walk/`, videos de las variantes de
+caminata. Informe de las extensiones: [`docs/extensions_report.md`](docs/extensions_report.md). El port a Isaac Sim
+está en un proyecto aparte (PABe-Isaac).
 
 ## Limitaciones
 

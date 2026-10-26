@@ -19,8 +19,8 @@ ROBOTS = ("g1", "revo2")
 ROBOT = os.environ.get("PABE_ROBOT", "g1")
 if ROBOT not in ROBOTS:
     raise ValueError(f"PABE_ROBOT={ROBOT!r}: debe ser uno de {ROBOTS}")
-REVO2_URDF = os.environ.get("PABE_REVO2_URDF", os.path.expanduser(
-    "~/gr00t_project/3D model/g1_with_revo2/g1_with_revo2_hands.urdf"))
+REVO2_URDF = os.environ.get("PABE_REVO2_URDF", os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "robots", "g1_with_revo2", "g1_with_revo2_hands.urdf"))
 RESULTS_DIR = "results/g1" if ROBOT == "g1" else f"results/g1_{ROBOT}"
 
 ARM_JOINTS = ["right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",

@@ -1,0 +1,7 @@
+[train-g1] error cartesiano de seguimiento p99/p99,5/p99,9 = [0.093 0.105 0.148]
+[train-g1] HMM con 54666 obs.; HSMM k=6; w_cart(p99,9)=0.148 m/s
+[train-g1] calibración: 36759 ticks (tasa W=0.238); q_CRC=[[0.07  0.134]
+ [0.03  0.209]]; q_RCIP=0.216
+[train-approach] HMM con 15245 obs.; y[3] por E/H/W: [ 0.46  0.04 -0.02]
+[train-approach] calibración: 11139 ticks (tasa W=0.257); H_ref=0.226
+done in 3.8 min
