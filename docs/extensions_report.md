@@ -11,7 +11,7 @@ On top of the PABe-CBF repository we fixed two arm problems, added the G1 with R
 
 What was done, in order:
 
-1. Local reproduction in `/mnt/data/CBF-repro` (Python 3.13, MuJoCo 3.16) and a B1 smoke test.
+1. Local reproduction in `/mnt/data/belief-entropy/mujoco` (Python 3.13, MuJoCo 3.16) and a B1 smoke test.
 2. Arm–torso self-collision barrier: the arm passed 5–10 cm through the robot's chest in every family.
 3. Palm orientation toward the person's palm (thumb-up handshake).
 4. Robot switch `PABE_ROBOT=revo2` using the 51-DOF URDF from the GR00T project.
